@@ -24,9 +24,14 @@ class TestHierarchicalLog(unittest.TestCase):
         # fileHandler.setFormatter(logFormatter)
         self.logger.addHandler(self.fileHandler)
 
+        self.recordingHandler = RecordingHandler()
+        self.logger.addHandler(self.recordingHandler)
+
     def tearDown(self):
         self.logger.removeHandler(self.fileHandler)
         self.fileHandler = None
+        self.logger.removeHandler(self.recordingHandler)
+        self.recordingHandler = None
 
     def logFileContent(self):
         with open(self.logFile) as f:
@@ -42,20 +47,27 @@ class TestHierarchicalLog(unittest.TestCase):
         self.assertTrue( re.search("Started", content ), "Check Started" )
         self.assertTrue( re.search("Finished", content ), "Check Finished" )
 
+    # Test RecordingHandler
+    # @unittest.skip("skipped temporarily")
+    def test_RecordingHandler(self):
+        initLogHierarchy(self.logger)
+        recordingHandler = RecordingHandler(10)
+        self.logger.addHandler(recordingHandler)
+
+        for i in range(10):
+            self.logger.info(str(i))
+
+        self.assertEqual( recordingHandler.at( 0 ).message, "0", "Check Handler record 0" )
+        self.assertEqual( recordingHandler.at( 9 ).message, "9", "Check Handler record 9" )
+        self.logger.info(str(10))
+        self.assertEqual( recordingHandler.at( 0 ), None, "Check Handler record 0 is None" )
+        self.assertEqual( recordingHandler.at( 1 ).message, "1", "Check Handler record 1" )
+        self.assertEqual( recordingHandler.at( 10 ).message, "10", "Check Handler record 10" )
+
     # Test if, hierarchy stage can be set in python logging system
     # @unittest.skip("skipped temporarily")
     def test_EnterLowerLogHierarchyStage(self):
         initLogHierarchy(self.logger)
-        records = []
-
-        class recordingHandler( logging.Handler ):
-            def __init__(self )-> None:
-                logging.Handler.__init__(self=self)
-            
-            def emit(self, record)->None:
-                records.append( record )
-
-        self.logger.addHandler(recordingHandler())
 
         self.logger.info('Started')
 
@@ -67,46 +79,30 @@ class TestHierarchicalLog(unittest.TestCase):
 
         self.logger.info('Finished')
 
-        self.assertEqual( records[0].hierarchyStage, 0 , "Check Hierarchy stage" )
-        self.assertEqual( records[1].hierarchyStage, 0 , "Check Hierarchy stage" )
-        self.assertEqual( records[2].hierarchyStage, 1 , "Check Hierarchy stage" )
-        self.assertEqual( records[3].hierarchyStage, 0 , "Check Hierarchy stage" )
+        self.assertEqual( self.recordingHandler.at(0).hierarchyStage, 0 , "Check Hierarchy stage" )
+        self.assertEqual( self.recordingHandler.at(1).hierarchyStage, 0 , "Check Hierarchy stage" )
+        self.assertEqual( self.recordingHandler.at(2).hierarchyStage, 1 , "Check Hierarchy stage" )
+        self.assertEqual( self.recordingHandler.at(3).hierarchyStage, 0 , "Check Hierarchy stage" )
 
     # Test if, hierarchy stage can be set in python logging system
     # @unittest.skip("skipped temporarily")
     def test_LowerLogHierarchyStage(self):
         initLogHierarchy(self.logger)
-        records = []
-
-        class recordingHandler( logging.Handler ):
-            def __init__(self )-> None:
-                logging.Handler.__init__(self=self)
-            
-            def emit(self, record)->None:
-                records.append( record )
-
-        self.logger.addHandler(recordingHandler())
 
         self.logger.info('Started')
 
         def function():
-            lowerHierachyStage = LowerLogHierarchyStage( self.logger )
+            lowerHierarchyStage = LowerLogHierarchyStage( self.logger )
             self.logger.info('Function ist doing something')
         
         function()
 
         self.logger.info('Finished')
 
-        self.assertEqual( records[0].hierarchyStage, 0 , "Check Hierarchy stage" )
-        self.assertEqual( records[1].hierarchyStage, 1 , "Check Hierarchy stage" )
-        self.assertEqual( records[2].hierarchyStage, 0 , "Check Hierarchy stage" )
+        self.assertEqual( self.recordingHandler.at(0).hierarchyStage, 0 , "Check Hierarchy stage" )
+        self.assertEqual( self.recordingHandler.at(1).hierarchyStage, 1 , "Check Hierarchy stage" )
+        self.assertEqual( self.recordingHandler.at(2).hierarchyStage, 0 , "Check Hierarchy stage" )
     
-
-
-#def function1():
-#    stage = increaseHierarchyStage( "Function 1" )
-#log( LogLevel.INFO, "Bla")
-
-
+    
 if __name__ == '__main__':
     unittest.main()
