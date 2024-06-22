@@ -4,6 +4,11 @@ import logging
 
 formerLogFactory = None
 
+# initialises the log hierarchy for python logger
+#  add member hierarchyStage and init its value to 0
+#  lower hierachy stages have higher numbers
+#  after initLogHierarchy log entries will be created with member hierachyStage set from the current hierachy level
+#  of the logger
 def initLogHierarchy(logger: logging.Logger = logging.getLogger()):
     global formerLogFactory
     
@@ -27,37 +32,47 @@ def __getHierarchyStage(logger):
         logger.hierarchyStage = -1
         return -1
     
-# increases level of hierarchy
-def incrHierarchyStage(logger: logging.Logger = logging.getLogger()):
+# lowers the level of hierarchy
+def lowerHierarchyStage(logger: logging.Logger = logging.getLogger()):
     logger.hierarchyStage += 1
 
-# decreases level of hierarchy
-def decrHierarchyStage(logger = logging.getLogger()):
+# raises level of hierarchy
+def raiseHierarchyStage(logger = logging.getLogger()):
     assert logger.hierarchyStage > 0, "Hierarchy stage must be greater 0 for this!"
     logger.hierarchyStage -= 1
 
-# increases log hierarchy stage and automatically decreases
+# lowers the log hierarchy stage and automatically raieses on leaving the "with" context
 # usage:
-# with IncreasedLogHierarchyStage( "Message text with previous log hierarchy stage here", logger ) :
-#     log("something with already increased log hierarchy stage here")
+# with EnterLowerLogHierarchyStage( "Message text with previous log hierarchy stage here", logger ) :
+#     log("something with already lowered log hierarchy stage here")
 #
-# log("something with again decreased hierarchy stage here")
-class IncreasedLogHierarchyStage():
+# log("something with again raised hierarchy stage here")
+class EnterLowerLogHierarchyStage():
     def __init__(self, msg: str, logger: logging.Logger = logging.getLogger() ):
         assert isinstance( msg, str ),  "Arg msg has to be of type str!"
         self.logger = logger
         self.logger.info( msg )
 
     def __enter__(self):
-        incrHierarchyStage(self.logger)
+        lowerHierarchyStage(self.logger)
 
     def __exit__(self ,type, value, traceback):
-        decrHierarchyStage( self.logger )
+        raiseHierarchyStage( self.logger )
 
+# lowers the log hierarchy stage and automatically raises on leaving the function context
+# usage:
+# def function():
+#   lowerHierachyStage = LowerLogHierarchyStage( "Message text with previous log hierarchy stage here", logger ) :
+#   log("something with already lowered log hierarchy stage here")
+#
+# log("something with again raised hierarchy stage here")
+class LowerLogHierarchyStage():
+    def __init__(self, logger: logging.Logger = logging.getLogger() ):
+        self.logger = logger
+        lowerHierarchyStage(self.logger)
 
-
-
-
+    def __del__(self ):
+        raiseHierarchyStage( self.logger )
 
 
 

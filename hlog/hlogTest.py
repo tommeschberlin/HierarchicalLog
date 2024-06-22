@@ -24,12 +24,16 @@ class TestHierarchicalLog(unittest.TestCase):
         # fileHandler.setFormatter(logFormatter)
         self.logger.addHandler(self.fileHandler)
 
+    def tearDown(self):
+        self.logger.removeHandler(self.fileHandler)
+        self.fileHandler = None
+
     def logFileContent(self):
         with open(self.logFile) as f:
             return f.readlines()
 
     # Test 
-    #@unittest.skip("skipped temporarily")
+    # @unittest.skip("skipped temporarily")
     def test_basic(self):
         self.logger.info('Started')
         self.logger.info('Finished')
@@ -40,7 +44,7 @@ class TestHierarchicalLog(unittest.TestCase):
 
     # Test if, hierarchy stage can be set in python logging system
     # @unittest.skip("skipped temporarily")
-    def test_hierarchyHandling(self):
+    def test_EnterLowerLogHierarchyStage(self):
         initLogHierarchy(self.logger)
         records = []
 
@@ -58,7 +62,7 @@ class TestHierarchicalLog(unittest.TestCase):
         def function():
             self.logger.info('Function ist doing something')
         
-        with IncreasedLogHierarchyStage("Function hier", self.logger):
+        with EnterLowerLogHierarchyStage("Function hier", self.logger):
             function()
 
         self.logger.info('Finished')
@@ -68,10 +72,34 @@ class TestHierarchicalLog(unittest.TestCase):
         self.assertEqual( records[2].hierarchyStage, 1 , "Check Hierarchy stage" )
         self.assertEqual( records[3].hierarchyStage, 0 , "Check Hierarchy stage" )
 
+    # Test if, hierarchy stage can be set in python logging system
+    # @unittest.skip("skipped temporarily")
+    def test_LowerLogHierarchyStage(self):
+        initLogHierarchy(self.logger)
+        records = []
 
+        class recordingHandler( logging.Handler ):
+            def __init__(self )-> None:
+                logging.Handler.__init__(self=self)
+            
+            def emit(self, record)->None:
+                records.append( record )
 
+        self.logger.addHandler(recordingHandler())
 
+        self.logger.info('Started')
 
+        def function():
+            lowerHierachyStage = LowerLogHierarchyStage( self.logger )
+            self.logger.info('Function ist doing something')
+        
+        function()
+
+        self.logger.info('Finished')
+
+        self.assertEqual( records[0].hierarchyStage, 0 , "Check Hierarchy stage" )
+        self.assertEqual( records[1].hierarchyStage, 1 , "Check Hierarchy stage" )
+        self.assertEqual( records[2].hierarchyStage, 0 , "Check Hierarchy stage" )
     
 
 
