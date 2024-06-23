@@ -49,9 +49,12 @@ class HierarchicalLogText(RecordingHandler, Frame):
         self.plusImage = PhotoImage(file=os.path.join(ScriptDir, "plus.png"))
         self.minusImage = PhotoImage(file=os.path.join(ScriptDir, "minus.png"))
 
+        self.logText.configure( state='normal' )
         self.logText.image_create( 'end', image=self.plusImage )
         self.logText.image_create( 'end', image=self.minusImage )
-
+        self.logText.delete(1.0,1.2)
+        self.logText.insert( 'end', "\n\nblacccccccccccccss\n\n" )
+        self.logText.configure( state='disabled' )
 
     def destroy(self):
         super().destroy()
@@ -69,6 +72,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
         end = self.logText.index(INSERT)
         self.logText.tag_add(record.levelname, begin, end )
         self.logText.configure( state='disabled' )
+
         self.update() 
 
 
