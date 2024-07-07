@@ -1,34 +1,27 @@
+import tkinter
 from tkinter import *
 from tkinter.ttk import *
 from hlog import *
 from hlogText import *
 
 # themes 'winnative', 'clam', 'alt', 'default', 'classic', 'vista', 'xpnative'
-Theme = 'winnative'
+Theme = 'default'
 
-class App(Frame):
+class App(tkinter.Frame):
     # init vars, create UI, start
     ######################################################################################################################
     def __init__(self, root):
         super().__init__(root)
 
-        self.root = root
-
         self.style = Style(root)
         self.style.theme_use(Theme)
-
+    
         # create logger
         self.logger = logging.getLogger('test')
         self.logger.setLevel(logging.DEBUG)
         initLogHierarchy(self.logger)
 
-        # create programm window and start mainloop
-        self.pack( expand=True, fill=BOTH)
         self.title = "HierarchicalLogTextTest"
-        root.resizable(True,True)
-        root.wm_attributes("-topmost", 1)
-        self.grid_columnconfigure(0, weight = 1)
-        self.grid_rowconfigure(0, weight = 1)
 
         self.hLogText = HierarchicalLogText( self )
         self.hLogText.pack(fill=BOTH, expand=True)
@@ -40,10 +33,17 @@ class App(Frame):
         self.logger.warning("warning")
         self.logger.error("error")
         self.logger.critical("critical")
-        None
 
-# and run
+        for i in range(100):
+            self.logger.info("info " + str(i))
+
+
+# create programm window and start mainloop
 Root = Tk()
+Root.resizable(True,True)
+Root.wm_attributes("-topmost", 1)
 App = App( Root )
+App.pack(fill=BOTH, expand=True)
+Root.update()
 App.after( 10, App.start() )
 App.mainloop()

@@ -6,11 +6,20 @@ from tkinter import PhotoImage
 import os
 from pathlib import Path
 
+
 class HierarchicalLogText(RecordingHandler, Frame):
+    defaultShowSubrecords = False
+    activeIdx = -1
+    firstPageIdx = 0
+    pageSize = 0
+
     def __init__(self, master=None, logger: logging.Logger = logging.getLogger(),
                  fmt: str = None, maxCntRecords: int =  100000, **kw):
         Frame.__init__(self, master, **kw)
         RecordingHandler.__init__(self, maxCntRecords = maxCntRecords )
+
+        self.grid_columnconfigure(0, weight = 1)
+        self.grid_rowconfigure(0, weight = 1)
 
         self.scrollX = Scrollbar( self, orient='horizontal' )
         self.scrollY = Scrollbar( self, orient='vertical' )
@@ -42,12 +51,12 @@ class HierarchicalLogText(RecordingHandler, Frame):
         self.logText.tag_config("WARNING", foreground="orange" )
 
         # update
-        self.bind('<Configure>', self._adjust)
-        self.bind('<Map>', self._adjust)
+        self.bind('<Configure>', self.configureOrMap)
+        self.bind('<Map>', self.configureOrMap)
 
-        ScriptDir = os.path.dirname(__file__)
-        self.plusImage = PhotoImage(file=os.path.join(ScriptDir, "plus.png"))
-        self.minusImage = PhotoImage(file=os.path.join(ScriptDir, "minus.png"))
+        scriptDir = os.path.dirname(__file__)
+        self.plusImage = PhotoImage(file=os.path.join(scriptDir, "plus.png"))
+        self.minusImage = PhotoImage(file=os.path.join(scriptDir, "minus.png"))
 
         self.logText.configure( state='normal' )
         self.logText.image_create( 'end', image=self.plusImage )
@@ -56,13 +65,52 @@ class HierarchicalLogText(RecordingHandler, Frame):
         self.logText.insert( 'end', "\n\nblacccccccccccccss\n\n" )
         self.logText.configure( state='disabled' )
 
+    def insertRecord( self, line: int, record ):
+        begin = str(line) + '.0'
+        self.logText.insert( begin, record.msg + '\n' )
+        end = self.logText.index(INSERT)
+        self.logText.tag_add(record.idx, begin, end )
+
+    def updateView(self):
+        activeIdx = self.activeIdx()
+        # firstVisibleIdx =
+        # l 
+        view = self.logText.yview()
+
+        begin = self.logText.index(INSERT)
+        self.logText.configure( state='normal' )
+        self.logText.insert( 'end', record.msg + '\n' )
+        if ( view[1] == 1.0 ):
+            self.logText.see( 'end' )
+        end = self.logText.index(INSERT)
+        self.logText.tag_add(record.levelname, begin, end )
+        self.logText.configure( state='disabled' )
+
+
     def destroy(self):
         super().destroy()
         self.label = None
         self.scale = None
 
     def emit(self, record)->None:
-        RecordingHandler.emit( self, record)
+        record.idx = self.entireAdded
+        record.showSubrecords = self.defaultShowSubrecords
+        RecordingHandler.emit( self, record )
+
+        # check to remove leading record if max count records was reached
+        if self.firstPageIdx < self.minIdx():
+            None
+
+        maxIdx = self.maxIdx()
+
+        # check if to show at end of current visible page
+        if maxIdx >= self.firstPageIdx and maxIdx <= (self.firstPageIdx + self.pageSize):
+            self.insertAt(END, [record])
+            if self.activeIdx < 0:
+                self.logText.see(END)
+
+    def insertAt(self, index, records):
+        
         begin = self.logText.index(INSERT)
         view = self.logText.yview()
         self.logText.configure( state='normal' )
@@ -76,7 +124,8 @@ class HierarchicalLogText(RecordingHandler, Frame):
         self.update() 
 
 
-    def _adjust(self, *args):
+    def configureOrMap(self, *args):
+        self.pageSize = self.logText.cget( 'height' )
         """Adjust scroll position according to the scale."""
         def adjust():
             self.update_idletasks() # "force" redraw
@@ -89,6 +138,9 @@ class HierarchicalLogText(RecordingHandler, Frame):
             #self.label.place_configure(x=x, y=y)
 
         self.after_idle(adjust)
+
+    def showEnd(self):
+        self.activeIdx = -1
 
     @property
     def value(self):
