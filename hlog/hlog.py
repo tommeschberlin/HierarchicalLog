@@ -98,4 +98,21 @@ class RecordingHandler( logging.Handler ):
         if relIdx < len( self.records ) and relIdx >= 0:
             return self.records[ relIdx ]
         return None
+    
+    def record( self, idx ):
+        relIdx = idx - self.minIdx()
+        assert relIdx >= 0 and relIdx < self.maxCntRecords
+        return self.records[ relIdx ]
+
+    def parentIdx( self, idx ):
+        record = self.record( idx )
+        if record.hierarchyStage <= 0:
+            return None
+        relIdx = idx - self.minIdx() - 1
+        while relIdx >= 0:
+            if self.records[ relIdx ].hierarchyStage < record.hierarchyStage:
+                return self.minIdx() + relIdx
+            relIdx = relIdx - 1
+
+        return None
 

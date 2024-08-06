@@ -24,6 +24,7 @@ class App(tkinter.Frame):
         self.title = "HierarchicalLogTextTest"
 
         self.hLogText = HierarchicalLogText( self )
+        self.hLogText.defaultShowSubrecords = True
         self.hLogText.pack(fill=BOTH, expand=True)
         self.logger.addHandler(self.hLogText)
 
@@ -34,7 +35,7 @@ class App(tkinter.Frame):
         self.logger.error("error")
         self.logger.critical("critical")
 
-        for i in range(100):
+        for i in range(10):
             self.logger.info("info " + str(i))
 
 
