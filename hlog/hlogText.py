@@ -7,12 +7,8 @@ import os
 from pathlib import Path
 import re
 
-
 class HierarchicalLogText(RecordingHandler, Frame):
-    defaultShowSubrecords = False
-    
-    firstPageIdx = 0
-    pageSize = 0
+    DefaultShowSubrecords = False
 
     def __init__(self, master=None, logger: logging.Logger = logging.getLogger(),
                  fmt: str = None, maxCntRecords: int =  100000, **kw):
@@ -57,80 +53,118 @@ class HierarchicalLogText(RecordingHandler, Frame):
         self.logText.tag_config("ERROR_ACTIVE", foreground="red", background=activeBackground )
         self.logText.tag_config("CRITICAL_ACTIVE", foreground="white", background="darkred", font=highlightFont )
         self.logText.tag_config("INFO_ACTIVE", foreground="black", background=activeBackground )
-        self.logText.tag_config("DEBUG_ACTIVE", foreground="darkgrey", background=activeBackground )
+        self.logText.tag_config("DEBUG_ACTIVE", foreground="white", background=activeBackground )
         self.logText.tag_config("WARNING_ACTIVE", foreground="orange", background=activeBackground )
+
+        for stage in range(0,10):
+            self.logText.tag_config("STAGE%s" % stage, lmargin1=[stage * 15])
 
         # update
         self.bind('<Configure>', self.onConfigureOrMap)
         self.bind('<Map>', self.onConfigureOrMap)
 
         self.logText.bind('<Button-1>', self.onMouseLeft)
+        self.logText.bind('<Key-Up>', self.onKeyUp)
+        self.logText.bind('<Key-Down>', self.onKeyDown)
 
         scriptDir = os.path.dirname(__file__)
         self.plusImage = PhotoImage(file=os.path.join(scriptDir, "plus.png"))
         self.minusImage = PhotoImage(file=os.path.join(scriptDir, "minus.png"))
 
         self.logText.configure( state='normal' )
-        self.logText.image_create( 'end', image=self.plusImage )
-        self.logText.image_create( 'end', image=self.minusImage )
-        self.logText.delete(1.0,1.2)
+        #self.logText.image_create( 'end', image=self.plusImage )
+        #self.logText.image_create( 'end', image=self.minusImage )
+        #self.logText.delete(1.0,1.2)
         #self.logText.insert( 'end', "\n\nblacccccccccccccss\n\n" )
         self.logText.configure( state='disabled' )
 
-    def insertRecord( self, line: int, record ):
-        assert self.logText.mark_names().count(record.idx) == 0 
-        begin = str(line) + '.0'
-        self.logText.mark_set( record.idx, begin )
-        self.logText.mark_gravity(record.idx, 'right')
-        self.logText.insert( begin, record.msg + '\n', record.levelname )
+    def markFromIdx( self, idx ):
+        return "Record%s" % idx
+
+    def markFromIndex( self, index ):
+        return self.logText.mark_next( self.logText.index( index + " linestart" ) )
+        
+    def idxFromMark( self, mark ):
+        return int(mark.split("Record")[1])
+    
+    def indexFromIdx( self, idx ):
+        return self.logText.index( "Record%s" % idx )
+
+    def appendRecord( self, record ):
+        assert self.logText.mark_names().count(self.markFromIdx( record.idx)) == 0 
+        hierarchyStageTag = "STAGE%s" % record.hierarchyStage
+        begin = self.logText.index("end - 1c") 
+        self.logText.insert( begin, record.msg + '\n', [record.levelname, hierarchyStageTag] )
+        markName = self.markFromIdx( record.idx )
+        self.logText.mark_set( markName, begin )
+        self.logText.mark_gravity(markName, 'left')
+        # print(self.logText.dump("1.0", "end", mark=True) )
+        #print(self.logText.index( markName ))
+        print(self.logText.tag_names(begin))
 
     def updateView(self):
-        activeIdx = self.activeIdx()
+        #activeIdx = self.activeIdx()
         # firstVisibleIdx =
         # l 
-        view = self.logText.yview()
+        #view = self.logText.yview()
 
-        begin = self.logText.index(INSERT)
-        self.logText.configure( state='normal' )
-        self.logText.insert( 'end', record.msg + '\n' )
-        if ( view[1] == 1.0 ):
-            self.logText.see( 'end' )
-        end = self.logText.index(INSERT)
-        self.logText.tag_add(record.levelname, begin, end )
-        self.logText.configure( state='disabled' )
+        #begin = self.logText.index(INSERT)
+        #self.logText.configure( state='normal' )
+        #self.logText.insert( 'end', record.msg + '\n' )
+        #if ( view[1] == 1.0 ):
+        #    self.logText.see( 'end' )
+        #end = self.logText.index(INSERT)
+        #self.logText.tag_add(record.levelname, begin, end )
+        #self.logText.configure( state='disabled' )
+        pass
 
     def destroy(self):
         super().destroy()
         self.label = None
         self.scale = None
 
-    def parentIdx( self, idx )->int:
-        self.at( idx )
-
     # find showState recursive
     def isShow( self, idx ):
         parentIdx = self.parentIdx( idx )
-        if not parentIdx:
+        if parentIdx is None:
             return True
         parent = self.record( parentIdx )
-        if parent.showSubRecords == False:
+        if parent.showSubrecords == False:
             return False
         return self.isShow( parentIdx )
 
     def emit(self, record)->None:
         record.idx = self.entireAdded
-        record.showSubrecords = self.defaultShowSubrecords
+        record.showSubrecords = self.DefaultShowSubrecords
         RecordingHandler.emit( self, record )
+        
+        parentIdx = self.parentIdx( record.idx )
+        isShow = True
+        if not parentIdx is None:
+            # need + or -
+            parent = self.record( parentIdx )
+            parentIsShow = self.isShow( parentIdx )
+            isShow = parent.showSubrecords and parentIsShow
+            if parentIsShow:
+                # new child, need to show +/- images
+                if self.cntChildren( parent ) == 1:
+                    if isShow:
+                        image = self.minusImage
+                    else:
+                        image = self.plusImage
+                    mark = self.markFromIdx( parent.idx )
+                    begin = self.logText.index( mark  )
+                    self.logText.image_create( begin, image=image, padx=2 )
+                    hierarchyStageTag = "STAGE%s" % parent.hierarchyStage
+                    self.logText.tag_add( hierarchyStageTag, begin, begin + " lineend" )
+                    self.logText.tag_add( parent.levelname, begin, begin + " lineend" )
 
-        # check if to show at end of current visible page
-        if record.idx >= self.firstPageIdx and record.idx <= (self.firstPageIdx + self.pageSize):
-            if self.isShow( record.idx ):
-                self.logText.configure( state='normal' )
-                line = self.logText.index(END).split('.')[0]
-                self.insertRecord(line, record)
-                if self.activeIdx > record.idx:
-                    self.logText.see(END)
-                self.logText.configure( state='disabled' )
+        if isShow:
+            self.logText.configure( state='normal' )
+            self.appendRecord(record)
+            if self.activeIdx > record.idx:
+                self.logText.see(END)
+            self.logText.configure( state='disabled' )
 
     # inserts a group of records at index 
     def insertAt(self, index, records):
@@ -167,38 +201,50 @@ class HierarchicalLogText(RecordingHandler, Frame):
         self.after_idle(adjust)
 
     def onMouseLeft(self, event):
-        if self.activeIdx < self.maxCntRecords:
-            self.unsetActiveIndex()
-        else:       
-            textIndex = self.logText.index( self.logText.index(f"@{event.x},{event.y}") + " linestart")
-            textLine = int(textIndex.split('.')[0])
-            self.setActiveIndex( self.firstPageIdx + textLine )
+        textIndex = self.logText.index( self.logText.index(f"@{event.x},{event.y}") + " linestart")
+        mark = self.logText.mark_next( textIndex )
+        idx = self.idxFromMark( mark )
+        self.alterActiveRecord( idx )
 
-    def unsetActiveIndex( self ):
-        if self.activeIdx >= self.maxIdx():
+    def onKeyUp(self, event):
+        if self.activeIdx <= self.maxIdx() and self.activeIdx > 0:
+            markIndex = self.logText.index( self.markFromIdx( self.activeIdx ) )
+            prevLineIndex = self.logText.index( markIndex + " -1 line")
+            prevIdx = self.idxFromMark( self.markFromIndex( prevLineIndex ) )
+            self.alterActiveRecord( prevIdx )
+
+    def onKeyDown(self, event):
+        if self.activeIdx < self.maxIdx() and self.activeIdx >= 0:
+            markIndex = self.logText.index( self.markFromIdx( self.activeIdx ) )
+            nextLineIndex = self.logText.index( markIndex + " +1 line")
+            nextIdx = self.idxFromMark( self.markFromIndex( nextLineIndex ) )
+            self.alterActiveRecord( nextIdx )
+
+    def unsetActiveRecord( self ):
+        if self.activeIdx > self.maxIdx():
             return
         record = self.record( self.activeIdx )
-        begin = self.logText.index( self.activeIdx )
-        end = self.logText.index( begin + ' lineend')
-        self.logText.tag_delete( begin, end, record.levelname + "_ACTICE" )
-        self.logText.tag_add( begin, end, record.levelname )
+        markIndex = self.indexFromIdx( self.activeIdx )
+        begin = self.logText.index( markIndex + " linestart")
+        end = self.logText.index( begin + " + 1 line" )
+        self.logText.tag_remove( record.levelname + "_ACTIVE", begin, end )
+        self.logText.tag_add( record.levelname, begin, end )
+        self.activeIdx = self.maxIdx() + 1
 
-    def setActiveIndex( self, line ):
-        self.unsetActiveIndex()
-        if line:
-            record = self.record( line )
-            self.activeIdx = line
-            if line < self.firstPageIdx:
-                pass
-
-            marks = self.logText.mark_next( f"{line}.0" )
-
-            begin = self.logText.index( self.activeIdx )
-            end = self.logText.index( f"{begin.split('.')[0]}.end")
-            end = self.logText.index( begin + " lineend")
-            self.logText.tag_add( begin, end, record.levelname + "_ACTIVE" )
-            self.logText.tag_delete( begin, end, record.levelname )
-
+    def alterActiveRecord( self, idx ):
+        lastActiveIdx = self.activeIdx
+        if self.activeIdx <= self.maxIdx():
+            self.unsetActiveRecord()
+        if idx == lastActiveIdx:
+            return
+        record = self.record( idx )
+        markIndex = self.indexFromIdx( idx )
+        begin = self.logText.index( markIndex + " linestart")
+        end = self.logText.index( begin + " + 1 line" )
+        self.logText.tag_remove( record.levelname, begin, end )
+        self.logText.tag_add( record.levelname + "_ACTIVE", begin, end )
+        self.activeIdx = idx
+        
     def showEnd(self):
         self.activeIdx = self.maxCntRecords
 
@@ -212,9 +258,3 @@ class HierarchicalLogText(RecordingHandler, Frame):
         """Set new scale value."""
         self._variable.set(val)
        
-
-
-
-
-
-

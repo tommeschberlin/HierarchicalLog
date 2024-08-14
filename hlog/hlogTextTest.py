@@ -24,19 +24,29 @@ class App(tkinter.Frame):
         self.title = "HierarchicalLogTextTest"
 
         self.hLogText = HierarchicalLogText( self )
-        self.hLogText.defaultShowSubrecords = True
+        self.hLogText.DefaultShowSubrecords = False
         self.hLogText.pack(fill=BOTH, expand=True)
         self.logger.addHandler(self.hLogText)
 
     def start(self):
-        self.logger.info("info")
-        self.logger.debug("debug")
-        self.logger.warning("warning")
-        self.logger.error("error")
-        self.logger.critical("critical")
+       # self.logger.info("info")
+       # self.logger.debug("debug")
+       # self.logger.warning("warning")
+       # self.logger.error("error")
+       # self.logger.critical("critical")
+
+        with EnterLowerLogHierarchyStage( "Stage 0 -> 1", self.logger ) :
+            with EnterLowerLogHierarchyStage( "Stage 1 -> 2", self.logger ) :
+                self.logger.debug("something with already lowered log hierarchy stage here")
+                with EnterLowerLogHierarchyStage( "Stage 2 -> 3", self.logger ) :
+                    self.logger.debug("something with already lowered log hierarchy stage here")
+                self.logger.debug("something with already lowered log hierarchy stage here")
+            self.logger.warning("something with already lowered log hierarchy stage here")
+
 
         for i in range(10):
-            self.logger.info("info " + str(i))
+          self.logger.info("info " + str(i))
+          pass
 
 
 # create programm window and start mainloop

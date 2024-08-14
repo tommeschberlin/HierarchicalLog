@@ -44,9 +44,9 @@ def raiseHierarchyStage(logger = logging.getLogger()):
 # lowers the log hierarchy stage and automatically raieses on leaving the "with" context
 # usage:
 # with EnterLowerLogHierarchyStage( "Message text with previous log hierarchy stage here", logger ) :
-#     log("something with already lowered log hierarchy stage here")
+#     logger.info("something with already lowered log hierarchy stage here")
 #
-# log("something with again raised hierarchy stage here")
+# logger.info("something with again raised hierarchy stage here")
 class EnterLowerLogHierarchyStage():
     def __init__(self, msg: str, logger: logging.Logger = logging.getLogger() ):
         assert isinstance( msg, str ),  "Arg msg has to be of type str!"
@@ -63,9 +63,9 @@ class EnterLowerLogHierarchyStage():
 # usage:
 # def function():
 #   lowerHierachyStage = LowerLogHierarchyStage( "Message text with previous log hierarchy stage here", logger ) :
-#   log("something with already lowered log hierarchy stage here")
+#   logger.info("something with already lowered log hierarchy stage here")
 #
-# log("something with again raised hierarchy stage here")
+# logger.info("something with again raised hierarchy stage here")
 class LowerLogHierarchyStage():
     def __init__(self, logger: logging.Logger = logging.getLogger() ):
         self.logger = logger
@@ -104,6 +104,18 @@ class RecordingHandler( logging.Handler ):
         assert relIdx >= 0 and relIdx < self.maxCntRecords
         return self.records[ relIdx ]
 
+    def cntChildren( self, record ):
+        childIdx = record.idx + 1
+        cnt = 0
+        while childIdx <= self.maxIdx():
+            child = self.record(childIdx)
+            if child.hierarchyStage <= record.hierarchyStage:
+                break
+            if child.hierarchyStage == record.hierarchyStage + 1:
+                cnt += 1
+            childIdx += 1
+        return cnt
+
     def parentIdx( self, idx ):
         record = self.record( idx )
         if record.hierarchyStage <= 0:
@@ -115,4 +127,3 @@ class RecordingHandler( logging.Handler ):
             relIdx = relIdx - 1
 
         return None
-
