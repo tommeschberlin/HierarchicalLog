@@ -104,6 +104,18 @@ class RecordingHandler( logging.Handler ):
         assert relIdx >= 0 and relIdx < self.maxCntRecords
         return self.records[ relIdx ]
 
+    def getChildren( self, record ):
+        childIdx = record.idx + 1
+        children = []
+        while childIdx <= self.maxIdx():
+            child = self.record(childIdx)
+            if child.hierarchyStage <= record.hierarchyStage:
+                break
+            if child.hierarchyStage == record.hierarchyStage + 1:
+                children.append( child )
+            childIdx += 1
+        return children
+
     def cntChildren( self, record ):
         childIdx = record.idx + 1
         cnt = 0

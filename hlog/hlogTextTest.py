@@ -24,7 +24,7 @@ class App(tkinter.Frame):
         self.title = "HierarchicalLogTextTest"
 
         self.hLogText = HierarchicalLogText( self )
-        self.hLogText.DefaultShowSubrecords = False
+        self.hLogText.DefaultShowSubrecords = True
         self.hLogText.pack(fill=BOTH, expand=True)
         self.logger.addHandler(self.hLogText)
 
