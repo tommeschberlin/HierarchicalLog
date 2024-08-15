@@ -10,10 +10,29 @@ import re
 class HierarchicalLogText(RecordingHandler, Frame):
     DefaultShowSubrecords = False
 
+    # characters for the tree view control handles
+    # ├ \u251C
+    # └ \u2514
+    # ⏵ \u23F5
+    # ⏷ \u23F7
+    # ⯈ \u2BC8
+    # ⯆ \u2BC6
+
+    CharacterShowSubrecords = '⯈'
+    CharacterHideSubrecords =  '⯆'
+    CharacterSubrecordMiddle = '├'
+    CharacterSubrecordEnd    = '└'
+    ScriptDir = os.path.dirname(__file__)
+    ImageShowSubrecords = None
+    ImageHideSubrecords = None
+
     def __init__(self, master=None, logger: logging.Logger = logging.getLogger(),
                  fmt: str = None, maxCntRecords: int =  100000, **kw):
         Frame.__init__(self, master, **kw)
         RecordingHandler.__init__(self, maxCntRecords = maxCntRecords )
+
+        HierarchicalLogText.ImageShowSubrecords = PhotoImage(file=os.path.join(HierarchicalLogText.ScriptDir, "plus.png"))
+        HierarchicalLogText.ImageHideSubrecords = PhotoImage(file=os.path.join(HierarchicalLogText.ScriptDir, "minus.png"))
 
         self.activeIdx = maxCntRecords
 
@@ -68,20 +87,10 @@ class HierarchicalLogText(RecordingHandler, Frame):
         self.logText.bind('<Key-Up>', self.onKeyUp)
         self.logText.bind('<Key-Down>', self.onKeyDown)
 
-        self.logText.tag_bind("ALTER_SHOW_SUBRECORDS_BUTTON", '<Enter>', self.showAlterShowSubrecordsCursor )
-        self.logText.tag_bind("ALTER_SHOW_SUBRECORDS_BUTTON", '<Leave>', self.hideAlterShowSubrecordsCursor )
-        self.logText.tag_bind("ALTER_SHOW_SUBRECORDS_BUTTON", '<Button-1>', self.alterShowSubrecords )
-
-        scriptDir = os.path.dirname(__file__)
-        self.plusImage = PhotoImage(file=os.path.join(scriptDir, "plus.png"))
-        self.minusImage = PhotoImage(file=os.path.join(scriptDir, "minus.png"))
-
-        self.logText.configure( state='normal' )
-        #self.logText.image_create( 'end', image=self.plusImage )
-        #self.logText.image_create( 'end', image=self.minusImage )
-        #self.logText.delete(1.0,1.2)
-        #self.logText.insert( 'end', "\n\nblacccccccccccccss\n\n" )
-        self.logText.configure( state='disabled' )
+        self.AlterShowSubrecordsTag = "ALTER_SHOW_SUBRECORDS_TAG"
+        self.logText.tag_bind(self.AlterShowSubrecordsTag, '<Enter>', self.showAlterShowSubrecordsCursor )
+        self.logText.tag_bind(self.AlterShowSubrecordsTag, '<Leave>', self.hideAlterShowSubrecordsCursor )
+        self.logText.tag_bind(self.AlterShowSubrecordsTag, '<Button-1>', self.alterShowSubrecords )
 
     def destroy(self):
         super().destroy()
@@ -111,52 +120,75 @@ class HierarchicalLogText(RecordingHandler, Frame):
         return str( self.logText.tag_ranges( "Record%s" % idx )[0] )
 
     def indexFromMark( self, mark ):
-        return str(self.logText.tag_ranges( mark )[0])
+        return self.logText.index( str(self.logText.tag_ranges( mark )[0]) + " linestart" )
     
     def updateParent( self, parent ):
-        # new child, need to show +/- images
-        if self.cntChildren( parent ) == 1:
-            if parent.showSubrecords:
-                image = self.minusImage
+        # children?, need to show +/- images
+        if self.cntChildren( parent.idx ) > 0:
+            if parent.showSubrecords == True:
+                image = self.ImageHideSubrecords
+                #alterChar = self.CharacterHideSubrecords
+                pass
             else:
-                image = self.plusImage
-            mark = self.markFromIdx( parent.idx )
-            begin = self.indexFromMark( mark  )
-            self.logText.image_create( begin, image=image, padx=2 )
-            self.logText.tag_add( "ALTER_SHOW_SUBRECORDS_BUTTON", begin, begin + " + 1c" )
-            hierarchyStageTag = "STAGE%s" % parent.hierarchyStage
-            self.logText.tag_add( hierarchyStageTag, begin, begin + " lineend" )
-            self.logText.tag_add( parent.levelname, begin, begin + " lineend" )
+                #alterChar = self.CharacterShowSubrecords
+                image = self.ImageShowSubrecords
+                pass
+            
+            markTag = self.markFromIdx( parent.idx )
+            begin = self.indexFromMark( markTag )
+            images = self.logText.dump( image=True, index1=begin )
+
+            if len(images) and images[0] != image.name:
+                self.logText.delete( begin, begin + " + 1c" )
+                images = []
+
+            if len(images) == 0:
+                self.logText.image_create( begin, image=image, padx=2 )
+            
+            #self.logText.insert( begin, alterChar )
+            
+            self.logText.tag_add( self.AlterShowSubrecordsTag, begin, begin + " + 1c" )
+
+            end = self.logText.index( begin  + " lineend")
+            self.logText.tag_add( markTag, begin, end )
+            self.logText.tag_add( "STAGE%s" % parent.hierarchyStage, begin, end )
+            self.logText.tag_add( parent.levelname, begin, end )
 
     # inserts a group of records at index 
-    def insertRecordsAt(self, records, index, parent = None):
+    def insertRecordsAt(self, indicees, index, parent = None):
+        cntInserted = 0
         if parent != None:
             self.updateParent( parent )
-        for record in records:
+
+        for idx in indicees:
+            record = self.record( idx )
             assert self.logText.tag_names().count( self.markFromIdx( record.idx) ) == 0 
 
-            hierarchyStageTag = "STAGE%s" % record.hierarchyStage
-            self.logText.insert( index, record.msg + '\n', [record.levelname, hierarchyStageTag] )
-            markName = self.markFromIdx( record.idx )
-            self.logText.tag_add( markName, index + " linestart", index + " lineend" )
+            begin = self.logText.index( index + " + %s lines linestart" % cntInserted )
+            self.logText.insert( begin, record.msg + '\n', )
+            end = self.logText.index( begin + " lineend" )
+            self.logText.tag_add( record.levelname, begin, end )
+            self.logText.tag_add( "STAGE%s" % record.hierarchyStage, begin, end )
+            self.logText.tag_add( self.markFromIdx( record.idx ), begin, end )
 
-            self.insertRecordsAt( self.getChildren( record ), self.logText.index( index + " + 1 line" ), record )
+            cntInserted += 1
+            cntInserted += self.insertRecordsAt(self.getChildren( record.idx ), begin, record )
+        
+        return cntInserted
 
     def emit(self, record)->None:
         record.idx = self.entireAdded
         record.showSubrecords = self.DefaultShowSubrecords
         RecordingHandler.emit( self, record )
-        parentIdx = self.parentIdx( record.idx )
+        parent = self.parentRecord( record.idx )
         isShow = True
-        parent = None
-        if not parentIdx is None:
+        if not parent is None:
             # need + or -
-            parent = self.record( parentIdx )
-            parentIsShow = self.isShow( parentIdx )
+            parentIsShow = self.isShow( parent.idx )
             isShow = parent.showSubrecords and parentIsShow
         if isShow:
             self.logText.configure( state='normal' )
-            self.insertRecordsAt([ record ], self.logText.index(END + " - 1c" ), parent)
+            self.insertRecordsAt([ record.idx ], self.logText.index(END + " -1c"), parent)
             if self.activeIdx > record.idx:
                 self.logText.see(END)
             self.logText.configure( state='disabled' )
@@ -190,47 +222,45 @@ class HierarchicalLogText(RecordingHandler, Frame):
         mouseIndex = self.logText.index( self.logText.index(f"@{event.x},{event.y}") )
         textIndex = self.logText.index( mouseIndex + " linestart")
         # if over +/- button no de/activation 
-        if "ALTER_SHOW_SUBRECORDS_BUTTON" in self.logText.tag_names( mouseIndex ):
+        if self.AlterShowSubrecordsTag in self.logText.tag_names( mouseIndex ):
             return
-        mark = self.markFromIndex( textIndex )
-        idx = self.idxFromMark( mark )
-        self.alterActiveRecord( idx )
+        self.alterActiveRecord( self.idxFromMark( self.markFromIndex( textIndex ) ) )
 
     def alterShowSubrecords(self, event):
         textIndex = self.logText.index( self.logText.index(f"@{event.x},{event.y}") + " linestart" )
-        mark = self.markFromIndex( textIndex )
-        idx = self.idxFromMark( mark )
-        record = self.record( idx )
-        self.logText.configure( state='normal' )
+        record = self.record( self.idxFromMark( self.markFromIndex( textIndex ) ) )
 
-        if record.showSubrecords:
+        showSubrecords = record.showSubrecords
+        record.showSubrecords = not record.showSubrecords
+        self.logText.configure( state='normal' )
+        if showSubrecords:
             self.removeSubrecords( record )
         else:
-            self.insertRecordsAt( self.getChildren( record ), self.logText.index( textIndex ) + " + 1 line", None )
-
+            self.insertRecordsAt( self.getChildren( record ), self.logText.index( textIndex  + " + 1 line" ), None )
         self.logText.configure( state='disabled' )
-        record.showSubrecords = not record.showSubrecords
 
-    def remove( self, record ):
-        assert self.logText.tag_names().count(self.markFromIdx( record.idx)) != 0
+    def remove( self, idx ):
+        record = self.record( idx )
+        assert self.logText.tag_names().count(self.markFromIdx( idx)) != 0
         if record.showSubrecords:
-            for child in self.getChildren( record ):
-                self.remove( child )
-        mark = self.markFromIdx( record.idx )
+            for childIdx in self.getChildren( idx ):
+                self.remove( childIdx )
+        mark = self.markFromIdx( idx )
         begin = self.logText.index( self.indexFromMark( mark ) + " linestart" )
         end = self.logText.index( begin + " + 1 line")
         self.logText.delete( begin, end )
         self.logText.tag_delete( mark )
+        self.updateParent( self.parentRecord( idx ) )
 
     def removeSubrecords( self, record ):
         self.logText.configure( state='normal' )
-        for child in self.getChildren( record ):
-            self.remove( child )
+        for childIdx in self.getChildren( record.idx ):
+            self.remove( childIdx )
         self.logText.configure( state='disabled' )
 
     def onMouseLeftDouble(self, event):
         mouseIndex = self.logText.index( self.logText.index(f"@{event.x},{event.y}") )
-        if "ALTER_SHOW_SUBRECORDS_BUTTON" in self.logText.tag_names( mouseIndex ):
+        if self.AlterShowSubrecordsTag in self.logText.tag_names( mouseIndex ):
             return
 
     def onKeyUp(self, event):
@@ -253,10 +283,10 @@ class HierarchicalLogText(RecordingHandler, Frame):
         record = self.record( self.activeIdx )
         markIndex = self.indexFromIdx( self.activeIdx )
         begin = self.logText.index( markIndex + " linestart")
-        end = self.logText.index( begin + " + 1 line" )
+        end = self.logText.index( begin + " lineend" )
         self.logText.tag_remove( record.levelname + "_ACTIVE", begin, end )
         self.logText.tag_add( record.levelname, begin, end )
-        self.activeIdx = self.maxIdx() + 1
+        self.activeIdx = self.maxCntRecords
 
     def alterActiveRecord( self, idx ):
         lastActiveIdx = self.activeIdx
@@ -267,7 +297,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
         record = self.record( idx )
         markIndex = self.indexFromIdx( idx )
         begin = self.logText.index( markIndex + " linestart")
-        end = self.logText.index( begin + " + 1 line" )
+        end = self.logText.index( begin + " lineend" )
         self.logText.tag_remove( record.levelname, begin, end )
         self.logText.tag_add( record.levelname + "_ACTIVE", begin, end )
         self.activeIdx = idx
