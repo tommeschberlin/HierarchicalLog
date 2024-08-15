@@ -103,6 +103,64 @@ class TestHierarchicalLog(unittest.TestCase):
         self.assertEqual( self.recordingHandler.at(1).hierarchyStage, 1 , "Check Hierarchy stage" )
         self.assertEqual( self.recordingHandler.at(2).hierarchyStage, 0 , "Check Hierarchy stage" )
     
+    def fillLog(self):
+        with EnterLowerLogHierarchyStage( "00", self.logger ) :
+            with EnterLowerLogHierarchyStage( "10", self.logger ) :
+                self.logger.debug("20")
+            self.logger.warning("11")
+        self.logger.warning("01")
+
+    # Test if, hierarchy stage can be set in python logging system
+    # @unittest.skip("skipped temporarily")
+    def test_maxIdx(self):
+        self.fillLog()
+        self.assertEqual( self.recordingHandler.maxIdx(), 4 )
+
+    def test_minIdx(self):
+        self.fillLog()
+        self.assertEqual( self.recordingHandler.minIdx(), 0 )
+    
+    def test_at(self):
+        self.fillLog()
+        self.assertEqual( self.recordingHandler.at( 5 ), None)
+        self.assertEqual( self.recordingHandler.at( 3 ).message, "11"  )
+    
+    def test_record( self):
+        self.fillLog()
+        self.assertEqual( self.recordingHandler.record( 4 ).message, "01"  )
+
+    def test_getChildren( self ):
+        self.fillLog()
+        self.assertEqual( len( self.recordingHandler.getChildren( 0 ) ), 2  )
+        self.assertEqual( len( self.recordingHandler.getChildren( 1 ) ), 1  )
+        self.assertEqual( len( self.recordingHandler.getChildren( 2 ) ), 0  )
+        self.assertEqual( len( self.recordingHandler.getChildren( 3 ) ), 0  )
+        self.assertEqual( len( self.recordingHandler.getChildren( 4 ) ), 0  )
+
+    def test_cntChildren( self):
+        self.fillLog()
+        self.assertEqual( self.recordingHandler.cntChildren( 0 ), 2  )
+        self.assertEqual( self.recordingHandler.cntChildren( 1 ), 1  )
+        self.assertEqual( self.recordingHandler.cntChildren( 2 ), 0  )
+        self.assertEqual( self.recordingHandler.cntChildren( 3 ), 0  )
+        self.assertEqual( self.recordingHandler.cntChildren( 4 ), 0  )
+
+    def test_parentIdx( self ):
+        self.fillLog()
+        self.assertEqual( self.recordingHandler.parentIdx( 0 ), None  )
+        self.assertEqual( self.recordingHandler.parentIdx( 1 ), 0 )
+        self.assertEqual( self.recordingHandler.parentIdx( 2 ), 1 )
+        self.assertEqual( self.recordingHandler.parentIdx( 3 ), 0 )
+        self.assertEqual( self.recordingHandler.parentIdx( 4 ), None )
+
+
+    def test_parentRecord( self ):
+        self.fillLog()
+        self.assertEqual( self.recordingHandler.parentRecord( 0 ), None  )
+        self.assertEqual( self.recordingHandler.parentRecord( 1 ).message, "00" )
+        self.assertEqual( self.recordingHandler.parentRecord( 2 ).message, "10" )
+        self.assertEqual( self.recordingHandler.parentRecord( 3 ).message, "00" )
+        self.assertEqual( self.recordingHandler.parentRecord( 4 ), None )
     
 if __name__ == '__main__':
     unittest.main()

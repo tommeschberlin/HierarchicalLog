@@ -104,38 +104,59 @@ class RecordingHandler( logging.Handler ):
         assert relIdx >= 0 and relIdx < self.maxCntRecords
         return self.records[ relIdx ]
 
-    def getChildren( self, record ):
-        childIdx = record.idx + 1
+    def getChildren( self, idx = None ):
+        if idx != None:
+            relIdx = min( idx, idx - (self.entireAdded - self.maxCntRecords) )
+            record = self.records[ relIdx ]
+            parentHierarchyStage = record.hierarchyStage
+            relChildIdx = relIdx + 1
+        else:
+            parentHierarchyStage = -1
+            relChildIdx = 0
         children = []
-        while childIdx <= self.maxIdx():
-            child = self.record(childIdx)
-            if child.hierarchyStage <= record.hierarchyStage:
+        while relChildIdx <= (self.maxIdx() - self.minIdx()):
+            child = self.records[ relChildIdx ]
+            if child.hierarchyStage <= parentHierarchyStage:
                 break
-            if child.hierarchyStage == record.hierarchyStage + 1:
-                children.append( child )
-            childIdx += 1
+            if child.hierarchyStage == parentHierarchyStage + 1:
+                children.append( relChildIdx + self.minIdx() )
+            relChildIdx += 1
         return children
 
-    def cntChildren( self, record ):
-        childIdx = record.idx + 1
+    def cntChildren( self, idx ):
+        if idx != None:
+            relIdx = min( idx, idx - (self.entireAdded - self.maxCntRecords) )
+            record = self.records[ relIdx ]
+            parentHierarchyStage = record.hierarchyStage
+            relChildIdx = relIdx + 1
+        else:
+            parentHierarchyStage = -1
+            relChildIdx = 0
         cnt = 0
-        while childIdx <= self.maxIdx():
-            child = self.record(childIdx)
-            if child.hierarchyStage <= record.hierarchyStage:
+        while relChildIdx <= (self.maxIdx() - self.minIdx()):
+            child = self.records[ relChildIdx ]
+            if child.hierarchyStage <= parentHierarchyStage:
                 break
-            if child.hierarchyStage == record.hierarchyStage + 1:
+            if child.hierarchyStage == parentHierarchyStage + 1:
                 cnt += 1
-            childIdx += 1
+            relChildIdx += 1
         return cnt
 
     def parentIdx( self, idx ):
-        record = self.record( idx )
+        relIdx = min( idx, idx - (self.entireAdded - self.maxCntRecords) )
+        record = self.records[ relIdx ]
         if record.hierarchyStage <= 0:
             return None
-        relIdx = idx - self.minIdx() - 1
+        relIdx -= 1
         while relIdx >= 0:
             if self.records[ relIdx ].hierarchyStage < record.hierarchyStage:
                 return self.minIdx() + relIdx
-            relIdx = relIdx - 1
+            relIdx -= 1
 
+        return None
+
+    def parentRecord( self, idx ):
+        parentIdx = self.parentIdx( idx )
+        if parentIdx != None:
+            return self.record( parentIdx )
         return None
