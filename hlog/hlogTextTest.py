@@ -135,9 +135,9 @@ class TestHlogText(unittest.TestCase):
 
         parent = self.hLogText.parentRecord( idx )
         if parent != None:
-            if self.hLogText.parentRecord( idx ).showSubrecords == False or not self.hLogText.isShow( parent.idx):
+            if parent.showSubrecords == False or not self.hLogText.isShow( idx):
                 markTag = self.hLogText.markFromIdx( idx )
-                self.assertEqual( 0, textWidget.tag_names().count( markTag ), "No marktags if not schown")
+                self.assertEqual( 0, textWidget.tag_names().count( markTag ), "Idx %s: No marktags expected, if not shown" % idx)
                 return
 
         # test idx
@@ -151,24 +151,26 @@ class TestHlogText(unittest.TestCase):
         # get count of previous suppressed ones
         cntNotShownCount = self.getPreviousNotShownCount( idx )
         expectedLine = idx - cntNotShownCount + 1
-        self.assertEqual( int( begin.split('.')[0] ), expectedLine, "Correct lineindex expected" )
-        self.assertEqual( int( begin.split('.')[1] ), 0, "Correct colindex expected" )
+        self.assertEqual( int( begin.split('.')[0] ), expectedLine, "Idx %s: Line for should be %s" % (idx, expectedLine) )
+        self.assertEqual( int( begin.split('.')[1] ), 0, "Idx %s: Col should be %s" % (idx, 0) )
 
         # test mark
+        expectedMark = "Record%s" % idx
         mark = self.hLogText.markFromIdx(idx)
-        self.assertEqual( mark, ( "Record%s" % idx ), "Correct mark expected" )
+        self.assertEqual( mark, expectedMark, "Idx %s: Mark wrong for idx" % idx )
 
         # test text / hierarchy
         hierarchy = self.hLogText.record( idx ).hierarchyStage
         posAtParent = self.getPosAtParent( idx )
         text = textWidget.get(begin, end)
-        self.assertEqual( text, ( "%s%s" % (hierarchy,posAtParent) ), "Text/Pos at Parent, Hierarchy expected" )
+        expectedText = "%s%s" % (hierarchy,posAtParent)
+        self.assertEqual( text, expectedText, "Idx %s: Text/Pos at Parent, Hierarchy wrong" % idx )
         self.assertEqual( text, record.msg )
         endCol = int(end.split('.')[1])
         expectedEndCol = len(text)
         if self.hLogText.cntChildren( idx ) > 0:
             expectedEndCol += 1 # because of shon icon
-        self.assertEqual( expectedEndCol, endCol, "col of lass message letter should match enpos" )
+        self.assertEqual( expectedEndCol, endCol, "Idx %s: col of last message letter should match endpos" % idx )
             
         dump = textWidget.dump( image=True, tag=True, index1=begin, index2=(end + " +1c"))
         tagon = []
@@ -186,19 +188,19 @@ class TestHlogText(unittest.TestCase):
                 expectedTagEndCol = expectedEndCol
                 if name == self.hLogText.AlterShowSubrecordsTag:
                     expectedTagEndCol = 1
-                self.assertEqual( col, expectedTagEndCol, "Endcolcheck")
+                self.assertEqual( col, expectedTagEndCol, "Idx %s: Endcolcheck" % idx)
                 tagoff.append(name)
 
         if self.hLogText.cntChildren( idx ) == 0:
-            self.assertEqual( 3, len(tagon), "Record without children should have 3 tags" ) # Type-Tag, Idx-Tag, Stage-Tag
+            self.assertEqual( 3, len(tagon), "Idx %s: Record without children should have 3 tags"  % idx ) # Type-Tag, Idx-Tag, Stage-Tag
         else:
-            self.assertEqual( 4, len(tagon), "Record with children should have 4 tags" ) # additional "ALTER_SHOW_RECORDS"-Tag
+            self.assertEqual( 4, len(tagon), "Idx %s: Record with children should have 4 tags" % idx ) # additional "ALTER_SHOW_RECORDS"-Tag
 
         for tag in tagon:
-            self.assertTrue( ( tag in tagoff ), "Tag %s not in tagoff %s" %(tag,tagoff) )
+            self.assertTrue( ( tag in tagoff ), "Idx %s: Tag %s not in tagoff %s" %(idx,tag,tagoff) )
     
         for tag in tagoff:
-            self.assertTrue( ( tag in tagon ), "Tag %s not in tagon %s" %(tag,tagon) )
+            self.assertTrue( ( tag in tagon ), "Idx %s: Tag %s not in tagon %s" %(idx,tag,tagon) )
 
 
     def checkAllEntries(self):
@@ -207,6 +209,17 @@ class TestHlogText(unittest.TestCase):
             self.checkEntry(idx)
             idx += 1
 
+    def getEventForIdx( self, idx ):
+        index = self.hLogText.indexFromIdx( idx )
+        Root.deiconify()
+        Root.update()
+        bbox = self.hLogText.logText.bbox( index )
+        Root.iconify()
+        event = Event()
+        Root.update()
+        event.x = bbox[0]
+        event.y = bbox[1]
+        return event
 
     # Test 
     # @unittest.skip("skipped temporarily")
@@ -224,16 +237,11 @@ class TestHlogText(unittest.TestCase):
         self.checkAllEntries()
         self.assertEqual( self.hLogText.activeIdx, self.hLogText.maxCntRecords )
 
+    # Test 
+    # @unittest.skip("skipped temporarily")
     def test_alterShowSubrecordsDepth1( self ):
-        index = self.hLogText.indexFromIdx( 1 )
-        Root.deiconify()
-        Root.update()
-        bbox = self.hLogText.logText.bbox( index )
-        Root.iconify()
-        event = Event()
-        Root.update()
-        event.x = bbox[0]
-        event.y = bbox[1]
+        event = self.getEventForIdx( 1 )
+
         # emulate mouse event
         self.hLogText.alterShowSubrecords( event )
         self.expectTrue( self.hLogText.isShow( 0 ) )
@@ -252,16 +260,10 @@ class TestHlogText(unittest.TestCase):
         self.expectTrue( self.hLogText.isShow( 4 ) )
         self.checkAllEntries()
 
+    # Test 
+    # @unittest.skip("skipped temporarily")
     def test_alterShowSubrecordsDetph2( self ):
-        index = self.hLogText.indexFromIdx( 0 )
-        Root.deiconify()
-        Root.update()
-        bbox = self.hLogText.logText.bbox( index )
-        Root.iconify()
-        event = Event()
-        Root.update()
-        event.x = bbox[0]
-        event.y = bbox[1]
+        event = self.getEventForIdx( 0 )
 
         # emulate mouse event
         self.hLogText.alterShowSubrecords( event )
@@ -290,6 +292,22 @@ class TestHlogText(unittest.TestCase):
         self.expectEqual( self.hLogText.indexFromIdx( 4 ), '5.0', "Idx 4 should have Index 5.0")
         self.expectEqual( self.hLogText.idxFromMark( self.hLogText.markFromIndex("5.0")), 4, "Idx at Index 5.0 should be 4")
         self.checkAllEntries()
+
+    # Test 
+    # @unittest.skip("skipped temporarily")
+    def test_alterShowSubrecordsTwice( self ):
+        self.hLogText.alterShowSubrecords( self.getEventForIdx( 1 ) )
+        self.checkAllEntries()
+
+        event = self.getEventForIdx( 0 )
+        self.hLogText.alterShowSubrecords( event )
+        self.checkAllEntries()
+
+        self.hLogText.alterShowSubrecords( event )
+        self.checkAllEntries()
+
+        self.hLogText.alterShowSubrecords( event )
+        self.hLogText.alterShowSubrecords( event )
 
 
 # create programm window and start mainloop

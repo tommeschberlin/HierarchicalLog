@@ -134,8 +134,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
                 image = self.ImageShowSubrecords
                 pass
             
-            markTag = self.markFromIdx( parent.idx )
-            begin = self.indexFromMark( markTag )
+            begin = self.indexFromMark( self.markFromIdx( parent.idx ) )
             images = self.logText.dump( image=True, index1=begin )
 
             if len(images) and images[0] != image.name:
@@ -148,17 +147,25 @@ class HierarchicalLogText(RecordingHandler, Frame):
             #self.logText.insert( begin, alterChar )
             
             self.logText.tag_add( self.AlterShowSubrecordsTag, begin, begin + " + 1c" )
+            self.setDefaultRecordTags( begin, parent )
 
-            end = self.logText.index( begin  + " lineend")
-            self.logText.tag_add( markTag, begin, end )
-            self.logText.tag_add( "STAGE%s" % parent.hierarchyStage, begin, end )
-            self.logText.tag_add( parent.levelname, begin, end )
+
+    def setDefaultRecordTags( self, begin, record ):
+        if record.idx == 2:
+            pass
+        end = self.logText.index( begin + " lineend" )
+        self.logText.tag_add( record.levelname, begin, end )
+        self.logText.tag_add( "STAGE%s" % record.hierarchyStage, begin, end )
+        self.logText.tag_add( self.markFromIdx( record.idx ), begin, end )
 
     # inserts a group of records at index 
-    def insertRecordsAt(self, indicees, index, parent = None):
+    def insertRecordsAt(self, indicees, index, parent : HLogRecord = None):
         cntInserted = 0
+
         if parent != None:
             self.updateParent( parent )
+            if not parent.showSubrecords:
+                return 0
 
         for idx in indicees:
             record = self.record( idx )
@@ -166,10 +173,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
 
             begin = self.logText.index( index + " + %s lines linestart" % cntInserted )
             self.logText.insert( begin, record.msg + '\n', )
-            end = self.logText.index( begin + " lineend" )
-            self.logText.tag_add( record.levelname, begin, end )
-            self.logText.tag_add( "STAGE%s" % record.hierarchyStage, begin, end )
-            self.logText.tag_add( self.markFromIdx( record.idx ), begin, end )
+            self.setDefaultRecordTags( begin, record )
 
             cntInserted += 1
             begin = self.logText.index( index + " + %s lines linestart" % cntInserted )
@@ -238,8 +242,9 @@ class HierarchicalLogText(RecordingHandler, Frame):
         if showSubrecords:
             self.removeSubrecords( record )
         else:
-            self.insertRecordsAt( self.getChildren( idx ), self.logText.index( textIndex  + " + 1 line" ), None )
+            self.insertRecordsAt( self.getChildren( idx ), self.logText.index( textIndex  + " + 1 line" ), record )
         self.logText.configure( state='disabled' )
+        self.logText.update()
 
     def remove( self, idx ):
         record = self.record( idx )
