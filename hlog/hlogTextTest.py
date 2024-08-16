@@ -48,7 +48,7 @@ class App(tkinter.Frame):
 
         start = time.time()
         with EnterLowerLogHierarchyStage( "0-1 Stage 0 -> 1", self.logger ) :
-            for i in range(10000):
+            for i in range(1000):
                 self.logger.info("info " + str(i))
         print( "insert: %s" % (time.time() - start))
 
@@ -327,5 +327,5 @@ def main():
     App.mainloop()
 
 if __name__ == '__main__':
-    unittest.main(failfast=True)
-    #main()
+    #unittest.main(failfast=True)
+    main()

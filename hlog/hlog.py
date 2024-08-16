@@ -107,6 +107,8 @@ class RecordingHandler( logging.Handler ):
         return max( 0, self.entireAdded - self.maxCntRecords )
     
     def at(self, idx)->HLogRecord:
+        if idx == None:
+            return None
         relIdx = min( idx, idx - (self.entireAdded - self.maxCntRecords) )
         if relIdx < len( self.records ) and relIdx >= 0:
             return self.records[ relIdx ]

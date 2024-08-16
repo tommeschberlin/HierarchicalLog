@@ -93,10 +93,9 @@ class HierarchicalLogText(RecordingHandler, Frame):
         self.logText.tag_bind(self.AlterShowSubrecordsTag, '<Button-1>', self.alterShowSubrecords )
 
         # some chaching
-        self.lastEmitHierarchyStage = -1
-        self.lastEmitParentIdx = -1
-        self.lastUpdateParentIdx = -1
-
+        self.lastHandledRecordHierarchyStage = -1
+        self.lastHandledParentIdx = -1
+        self.clearCache()
 
     def destroy(self):
         super().destroy()
@@ -129,10 +128,6 @@ class HierarchicalLogText(RecordingHandler, Frame):
         return self.logText.index( str(self.logText.tag_ranges( mark )[0]) + " linestart" )
     
     def updateParent( self, parent : HLogRecord ):
-        if self.lastUpdateParentIdx == parent.idx:
-            return
-        self.lastUpdateParentIdx = parent.idx
-
         # children?, need to show +/- images
         if self.cntChildren( parent.idx ) > 0:
             if parent.showSubrecords == True:
@@ -173,7 +168,9 @@ class HierarchicalLogText(RecordingHandler, Frame):
         cntInserted = 0
 
         if parent != None:
-            self.updateParent( parent )
+            # no parent treatment needed if already done for a previous record
+            if parent.idx != self.lastHandledParentIdx:
+                self.updateParent( parent )
             if not parent.showSubrecords:
                 return 0
 
@@ -197,11 +194,10 @@ class HierarchicalLogText(RecordingHandler, Frame):
         record.idx = self.entireAdded
         record.showSubrecords = self.DefaultShowSubrecords
         RecordingHandler.emit( self, record )
-        if self.lastEmitHierarchyStage == record.hierarchyStage:
-            if record.hierarchyStage == 0:
-                parent = None
-            else:
-                parent = self.at( self.lastEmitParentIdx )
+
+        # no parent retrieving needed if already done for a previous record
+        if self.lastHandledRecordHierarchyStage == record.hierarchyStage:
+            parent = self.at( self.lastHandledParentIdx )
         else:
             parent = self.parentRecord( record.idx )
 
@@ -217,11 +213,11 @@ class HierarchicalLogText(RecordingHandler, Frame):
                 self.logText.see(END)
             self.logText.configure( state='disabled' )
 
-        self.lastEmitHierarchyStage = record.hierarchyStage
+        self.lastHandledRecordHierarchyStage = record.hierarchyStage
         if parent:
-            self.lastEmitParentIdx = parent.idx
+            self.lastHandledParentIdx = parent.idx
         else:
-            self.lastEmitParentIdx = None
+            self.lastHandledParentIdx = None
 
     # find showState recursive
     def isShow( self, idx ):
@@ -256,7 +252,12 @@ class HierarchicalLogText(RecordingHandler, Frame):
             return
         self.alterActiveRecord( self.idxFromMark( self.markFromIndex( textIndex ) ) )
 
+    def clearCache( self ):
+        self.lastHandledParentIdx = -1
+        self.lastHandledRecordHierarchyStage = -1
+
     def alterShowSubrecords(self, event):
+        self.clearCache()
         textIndex = self.logText.index( self.logText.index(f"@{event.x},{event.y}") + " linestart" )
         idx = self.idxFromMark( self.markFromIndex( textIndex ) )
         record = self.record( idx )
@@ -270,6 +271,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
             self.insertRecordsAt( self.getChildren( idx ), self.logText.index( textIndex  + " + 1 line" ), record )
         self.logText.configure( state='disabled' )
         self.logText.update()
+        self.clearCache()
 
     def remove( self, idx ):
         record = self.record( idx )
@@ -282,7 +284,11 @@ class HierarchicalLogText(RecordingHandler, Frame):
         end = self.logText.index( begin + " + 1 line")
         self.logText.delete( begin, end )
         self.logText.tag_delete( mark )
-        self.updateParent( self.parentRecord( idx ) )
+
+        # no parent treatment needed if alrady done for a previous child
+        if record.hierarchyStage != self.lastHandledRecordHierarchyStage:
+            self.updateParent( self.parentRecord( idx ) )
+            self.lastHandledRecordHierarchyStage = record.hierarchyStage
 
     def removeSubrecords( self, record ):
         self.logText.configure( state='normal' )
