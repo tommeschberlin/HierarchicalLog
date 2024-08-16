@@ -341,7 +341,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
         record = self.record( self.activeIdx )
         markIndex = self.indexFromIdx( self.activeIdx )
         begin = self.logText.index( markIndex + " linestart")
-        end = self.logText.index( begin + " lineend" )
+        end = self.logText.index( begin + " lineend +1c" )
         self.logText.tag_remove( record.levelname + "_ACTIVE", begin, end )
         self.logText.tag_add( record.levelname, begin, end )
         self.activeIdx = self.maxCntRecords
@@ -355,7 +355,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
         record = self.record( idx )
         markIndex = self.indexFromIdx( idx )
         begin = self.logText.index( markIndex + " linestart")
-        end = self.logText.index( begin + " lineend" )
+        end = self.logText.index( begin + " lineend +1c" )
         self.logText.tag_remove( record.levelname, begin, end )
         self.logText.tag_add( record.levelname + "_ACTIVE", begin, end )
         self.activeIdx = idx
