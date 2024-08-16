@@ -59,6 +59,19 @@ class EnterLowerLogHierarchyStage():
     def __exit__(self ,type, value, traceback):
         raiseHierarchyStage( self.logger )
 
+# 
+class HLogRecord( logging.LogRecord ):
+    """
+    A specialized Record class for Hierarchical Log, to hold additional properties about the hierarchy
+    and to be useful for filling model-view based UI
+    It also supports the intellisense features of vscode python module
+    """
+
+    def __init__(self):
+        self.hierarchyStage = -1
+        self.idx = -1
+        self.showSubrecords = False
+
 # lowers the log hierarchy stage and automatically raises on leaving the function context
 # usage:
 # def function():
@@ -80,10 +93,10 @@ class RecordingHandler( logging.Handler ):
     def __init__(self, maxCntRecords: int =  100000 )->None:
         logging.Handler.__init__(self=self)
         self.maxCntRecords = maxCntRecords
-        self.records = deque( maxlen=self.maxCntRecords )
+        self.records = deque( maxlen=self.maxCntRecords )  # type: deque[HLogRecord]
         self.entireAdded = 0
 
-    def emit(self, record)->None:
+    def emit(self, record : HLogRecord )->None:
         self.entireAdded += 1
         self.records.append( record )
 
@@ -93,13 +106,13 @@ class RecordingHandler( logging.Handler ):
     def minIdx(self):
         return max( 0, self.entireAdded - self.maxCntRecords )
     
-    def at(self, idx):
+    def at(self, idx)->HLogRecord:
         relIdx = min( idx, idx - (self.entireAdded - self.maxCntRecords) )
         if relIdx < len( self.records ) and relIdx >= 0:
             return self.records[ relIdx ]
         return None
     
-    def record( self, idx ):
+    def record( self, idx )->HLogRecord:
         relIdx = idx - self.minIdx()
         assert relIdx >= 0 and relIdx < self.maxCntRecords
         return self.records[ relIdx ]
@@ -155,7 +168,7 @@ class RecordingHandler( logging.Handler ):
 
         return None
 
-    def parentRecord( self, idx ):
+    def parentRecord( self, idx )->HLogRecord:
         parentIdx = self.parentIdx( idx )
         if parentIdx != None:
             return self.record( parentIdx )
