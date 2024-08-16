@@ -1,6 +1,7 @@
 import unittest
 import tkinter
 import sys
+import time
 from tkinter import *
 from tkinter.ttk import *
 from hlog import *
@@ -45,9 +46,11 @@ class App(tkinter.Frame):
                 self.logger.debug("2-2 something with already lowered log hierarchy stage here")
             self.logger.warning("1-1 something with already lowered log hierarchy stage here")
 
-        for i in range(10):
-        #  self.logger.info("info " + str(i))
-          pass
+        start = time.time()
+        with EnterLowerLogHierarchyStage( "0-1 Stage 0 -> 1", self.logger ) :
+            for i in range(10000):
+                self.logger.info("info " + str(i))
+        print( "insert: %s" % (time.time() - start))
 
 class TestHlogText(unittest.TestCase):
     def __init__(self, methodName: str = "runTest") -> None:
@@ -58,9 +61,9 @@ class TestHlogText(unittest.TestCase):
         self.app.pack(fill=BOTH, expand=True)
         Root.update()
         Root.iconify()
+        self.hLogText = self.app.hLogText
         self.fillLog()
         self.app.update()
-        self.hLogText = self.app.hLogText
 
     def tearDown(self):
         self.app.quit()
@@ -324,5 +327,5 @@ def main():
     App.mainloop()
 
 if __name__ == '__main__':
-    # unittest.main(failfast=True)
-    main()
+    unittest.main(failfast=True)
+    #main()

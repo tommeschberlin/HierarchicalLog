@@ -92,6 +92,12 @@ class HierarchicalLogText(RecordingHandler, Frame):
         self.logText.tag_bind(self.AlterShowSubrecordsTag, '<Leave>', self.hideAlterShowSubrecordsCursor )
         self.logText.tag_bind(self.AlterShowSubrecordsTag, '<Button-1>', self.alterShowSubrecords )
 
+        # some chaching
+        self.lastEmitHierarchyStage = -1
+        self.lastEmitParentIdx = -1
+        self.lastUpdateParentIdx = -1
+
+
     def destroy(self):
         super().destroy()
         self.label = None
@@ -122,7 +128,11 @@ class HierarchicalLogText(RecordingHandler, Frame):
     def indexFromMark( self, mark ):
         return self.logText.index( str(self.logText.tag_ranges( mark )[0]) + " linestart" )
     
-    def updateParent( self, parent ):
+    def updateParent( self, parent : HLogRecord ):
+        if self.lastUpdateParentIdx == parent.idx:
+            return
+        self.lastUpdateParentIdx = parent.idx
+
         # children?, need to show +/- images
         if self.cntChildren( parent.idx ) > 0:
             if parent.showSubrecords == True:
@@ -135,9 +145,9 @@ class HierarchicalLogText(RecordingHandler, Frame):
                 pass
             
             begin = self.indexFromMark( self.markFromIdx( parent.idx ) )
-            images = self.logText.dump( image=True, index1=begin )
+            images = self.logText.dump( image=True, index1=begin, index2=begin + " +1c" )
 
-            if len(images) and images[0] != image.name:
+            if len(images) and not images[0][1].startswith( image.name ):
                 self.logText.delete( begin, begin + " + 1c" )
                 images = []
 
@@ -169,23 +179,32 @@ class HierarchicalLogText(RecordingHandler, Frame):
 
         for idx in indicees:
             record = self.record( idx )
-            assert self.logText.tag_names().count( self.markFromIdx( record.idx) ) == 0 
+            #  assert self.logText.tag_names().count( self.markFromIdx( record.idx) ) == 0 
 
             begin = self.logText.index( index + " + %s lines linestart" % cntInserted )
             self.logText.insert( begin, record.msg + '\n', )
             self.setDefaultRecordTags( begin, record )
-
             cntInserted += 1
-            begin = self.logText.index( index + " + %s lines linestart" % cntInserted )
-            cntInserted += self.insertRecordsAt(self.getChildren( record.idx ), begin, record )
+
+            # only not last element can have children
+            if record.idx < self.maxIdx():
+                begin = self.logText.index( index + " + %s lines linestart" % cntInserted )
+                cntInserted += self.insertRecordsAt(self.getChildren( record.idx ), begin, record )
         
         return cntInserted
 
-    def emit(self, record)->None:
+    def emit(self, record : HLogRecord)->None:
         record.idx = self.entireAdded
         record.showSubrecords = self.DefaultShowSubrecords
         RecordingHandler.emit( self, record )
-        parent = self.parentRecord( record.idx )
+        if self.lastEmitHierarchyStage == record.hierarchyStage:
+            if record.hierarchyStage == 0:
+                parent = None
+            else:
+                parent = self.at( self.lastEmitParentIdx )
+        else:
+            parent = self.parentRecord( record.idx )
+
         isShow = True
         if not parent is None:
             # need + or -
@@ -197,6 +216,12 @@ class HierarchicalLogText(RecordingHandler, Frame):
             if self.activeIdx > record.idx:
                 self.logText.see(END)
             self.logText.configure( state='disabled' )
+
+        self.lastEmitHierarchyStage = record.hierarchyStage
+        if parent:
+            self.lastEmitParentIdx = parent.idx
+        else:
+            self.lastEmitParentIdx = None
 
     # find showState recursive
     def isShow( self, idx ):
