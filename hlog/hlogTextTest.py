@@ -48,7 +48,7 @@ class App(tkinter.Frame):
 
         start = time.time()
         with EnterLowerLogHierarchyStage( "0-1 Stage 0 -> 1", self.logger ) :
-            for i in range(1000):
+            for i in range(5000):
                 self.logger.info("info " + str(i))
         print( "insert: %s" % (time.time() - start))
 
@@ -140,7 +140,8 @@ class TestHlogText(unittest.TestCase):
         if parent != None:
             if parent.showSubrecords == False or not self.hLogText.isShow( idx):
                 markTag = self.hLogText.markFromIdx( idx )
-                self.assertEqual( 0, textWidget.tag_names().count( markTag ), "Idx %s: No marktags expected, if not shown" % idx)
+                index = self.hLogText.indexFromMark( markTag )
+                self.assertEqual( index, None, "Idx %s: No marktags expected, if not shown" % idx)
                 return
 
         # test idx
@@ -232,6 +233,7 @@ class TestHlogText(unittest.TestCase):
     # Test 
     # @unittest.skip("skipped temporarily")
     def test_alterActiveRecord( self ):
+        self.checkAllEntries()
         # emulate mouse event
         self.hLogText.alterActiveRecord( 1 )
         self.checkAllEntries()
@@ -327,5 +329,5 @@ def main():
     App.mainloop()
 
 if __name__ == '__main__':
-    #unittest.main(failfast=True)
+    ##unittest.main(failfast=True)
     main()

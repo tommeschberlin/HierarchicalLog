@@ -125,7 +125,10 @@ class HierarchicalLogText(RecordingHandler, Frame):
         return str( self.logText.tag_ranges( "Record%s" % idx )[0] )
 
     def indexFromMark( self, mark ):
-        return self.logText.index( str(self.logText.tag_ranges( mark )[0]) + " linestart" )
+        tagRanges = self.logText.tag_ranges( mark )
+        if not tagRanges:
+            return None
+        return self.logText.index( str(tagRanges[0]) + " linestart" )
     
     def updateParent( self, parent : HLogRecord ):
         # children?, need to show +/- images
@@ -192,7 +195,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
 
     def emit(self, record : HLogRecord)->None:
         record.idx = self.entireAdded
-        record.showSubrecords = self.DefaultShowSubrecords
+        record.showSubrecords = None
         RecordingHandler.emit( self, record )
 
         # no parent retrieving needed if already done for a previous record
@@ -203,9 +206,18 @@ class HierarchicalLogText(RecordingHandler, Frame):
 
         isShow = True
         if not parent is None:
+            if parent.showSubrecords is None:
+                parent.showSubrecords = self.DefaultShowSubrecords
+
             # need + or -
             parentIsShow = self.isShow( parent.idx )
             isShow = parent.showSubrecords and parentIsShow
+            if not isShow and parentIsShow:
+                if parent.idx != self.lastHandledParentIdx:
+                    self.logText.configure( state='normal' )
+                    self.updateParent( parent )
+                    self.logText.configure( state='disabled' )
+
         if isShow:
             self.logText.configure( state='normal' )
             self.insertRecordsAt([ record.idx ], self.logText.index(END + " -1c"), parent)
@@ -273,27 +285,35 @@ class HierarchicalLogText(RecordingHandler, Frame):
         self.logText.update()
         self.clearCache()
 
-    def remove( self, idx ):
-        record = self.record( idx )
-        assert self.logText.tag_names().count(self.markFromIdx( idx)) != 0
-        if record.showSubrecords:
-            for childIdx in self.getChildren( idx ):
-                self.remove( childIdx )
-        mark = self.markFromIdx( idx )
-        begin = self.logText.index( self.indexFromMark( mark ) + " linestart" )
-        end = self.logText.index( begin + " + 1 line")
-        self.logText.delete( begin, end )
-        self.logText.tag_delete( mark )
+    def removeRecords( self, indicees, parentIdx ):
+        groupBegin = ''
+        groupEnd = ''
+        for idx in indicees:
+            record = self.record( idx )
+            # assert self.logText.tag_names().count(self.markFromIdx( idx)) != 0
+            if not record.showSubrecords is None and record.showSubrecords:
+                if groupBegin:
+                    self.logText.delete( groupBegin, groupEnd )
+                    groupBegin = ''
+                self.removeRecords( self.getChildren( idx ), idx )
+            mark = self.markFromIdx( idx )
+            recordBegin = self.logText.index( self.indexFromMark( mark ) + " linestart" )
+            groupEnd = self.logText.index( recordBegin + " + 1 line")
 
-        # no parent treatment needed if alrady done for a previous child
-        if record.hierarchyStage != self.lastHandledRecordHierarchyStage:
-            self.updateParent( self.parentRecord( idx ) )
-            self.lastHandledRecordHierarchyStage = record.hierarchyStage
+            if not groupBegin:
+                groupBegin = recordBegin
+            
+            # no parent treatment needed if alrady done for a previous child
+            if record.hierarchyStage != self.lastHandledRecordHierarchyStage:
+                self.updateParent( self.parentRecord( idx ) )
+                self.lastHandledRecordHierarchyStage = record.hierarchyStage
+
+        if groupBegin:
+            self.logText.delete( groupBegin, groupEnd )
 
     def removeSubrecords( self, record ):
         self.logText.configure( state='normal' )
-        for childIdx in self.getChildren( record.idx ):
-            self.remove( childIdx )
+        self.removeRecords( self.getChildren( record.idx ), record.idx )
         self.logText.configure( state='disabled' )
 
     def onMouseLeftDouble(self, event):
