@@ -172,6 +172,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
             self.logText.tag_add( self.markFromIdx( record.idx ), begin, end )
 
             cntInserted += 1
+            begin = self.logText.index( index + " + %s lines linestart" % cntInserted )
             cntInserted += self.insertRecordsAt(self.getChildren( record.idx ), begin, record )
         
         return cntInserted
@@ -228,7 +229,8 @@ class HierarchicalLogText(RecordingHandler, Frame):
 
     def alterShowSubrecords(self, event):
         textIndex = self.logText.index( self.logText.index(f"@{event.x},{event.y}") + " linestart" )
-        record = self.record( self.idxFromMark( self.markFromIndex( textIndex ) ) )
+        idx = self.idxFromMark( self.markFromIndex( textIndex ) )
+        record = self.record( idx )
 
         showSubrecords = record.showSubrecords
         record.showSubrecords = not record.showSubrecords
@@ -236,7 +238,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
         if showSubrecords:
             self.removeSubrecords( record )
         else:
-            self.insertRecordsAt( self.getChildren( record ), self.logText.index( textIndex  + " + 1 line" ), None )
+            self.insertRecordsAt( self.getChildren( idx ), self.logText.index( textIndex  + " + 1 line" ), None )
         self.logText.configure( state='disabled' )
 
     def remove( self, idx ):
