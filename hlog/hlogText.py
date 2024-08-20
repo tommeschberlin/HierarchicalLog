@@ -291,6 +291,10 @@ class HierarchicalLogText(RecordingHandler, Frame):
     def removeRecords( self, indicees, parentIdx ):
         groupBegin = ''
         groupEnd = ''
+        
+        if self.activeIdx in indicees:
+            self.unsetActiveRecord()
+
         for idx in indicees:
             record = self.record( idx )
             # assert self.logText.tag_names().count(self.markFromIdx( idx)) != 0
@@ -310,9 +314,6 @@ class HierarchicalLogText(RecordingHandler, Frame):
             if record.hierarchyStage != self.lastHandledRecordHierarchyStage:
                 self.updateParent( self.parentRecord( idx ) )
                 self.lastHandledRecordHierarchyStage = record.hierarchyStage
-
-        if self.activeIdx in indicees:
-            self.unsetActiveRecord()
 
         if groupBegin:
             self.logText.delete( groupBegin, groupEnd )
@@ -348,7 +349,8 @@ class HierarchicalLogText(RecordingHandler, Frame):
         markIndex = self.indexFromIdx( self.activeIdx )
         begin = self.logText.index( markIndex + " linestart")
         end = self.logText.index( begin + " lineend" )
-        self.logText.tag_remove( record.levelname + "_ACTIVE", begin, end )
+        activeEnd = self.logText.index( end + " +1c" )
+        self.logText.tag_remove( record.levelname + "_ACTIVE", begin, activeEnd )
         self.logText.tag_add( record.levelname, begin, end )
         self.activeIdx = self.maxCntRecords
 
@@ -362,8 +364,9 @@ class HierarchicalLogText(RecordingHandler, Frame):
         markIndex = self.indexFromIdx( idx )
         begin = self.logText.index( markIndex + " linestart")
         end = self.logText.index( begin + " lineend" )
+        activeEnd = self.logText.index( end + " +1c" )
         self.logText.tag_remove( record.levelname, begin, end )
-        self.logText.tag_add( record.levelname + "_ACTIVE", begin, end )
+        self.logText.tag_add( record.levelname + "_ACTIVE", begin, activeEnd )
         self.activeIdx = idx
         
     def showEnd(self):

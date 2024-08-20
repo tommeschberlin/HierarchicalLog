@@ -180,7 +180,7 @@ class TestHlogText(unittest.TestCase):
             expectedEndCol += 1 # because of shon icon
         self.assertEqual( expectedEndCol, endCol, "Idx %s: col of last message letter should match endpos" % idx )
             
-        dump = textWidget.dump( image=True, tag=True, index1=begin, index2=(end + " +1c"))
+        dump = textWidget.dump( image=True, tag=True, index1=begin, index2= textWidget.index(end + " +1c"))
         tagon = []
         tagoff = []
         for entry in dump:
@@ -191,12 +191,18 @@ class TestHlogText(unittest.TestCase):
                 self.assertEqual( col, 0)
             elif type == "tagon":
                self.assertEqual( col, 0)
+               # some creepy exception for ACTIVE
+               if name.endswith("_ACTIVE"):
+                   tagoff.append(name)
                tagon.append(name)
             elif type == "tagoff":
                 expectedTagEndCol = expectedEndCol
+                # some creepy exception for ACTIVE
+                if name.endswith("_ACTIVE"):
+                    continue
                 if name == self.hLogText.AlterShowSubrecordsTag:
                     expectedTagEndCol = 1
-                self.assertEqual( col, expectedTagEndCol, "Idx %s: Endcolcheck" % idx)
+                self.assertEqual( col, expectedTagEndCol, "Idx %s: Endcolcheck for tag %s" % (idx,name))
                 tagoff.append(name)
 
         if self.hLogText.cntChildren( idx ) == 0:
@@ -336,9 +342,6 @@ Root.wm_attributes("-topmost", 1)
 
 def main():
     global App
-    Root = Tk()
-    Root.resizable(True,True)
-    Root.wm_attributes("-topmost", 1)
     App = App( Root )
     App.pack(fill=BOTH, expand=True)
     Root.update()
