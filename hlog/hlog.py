@@ -98,11 +98,20 @@ class LowerLogHierarchyStage():
 # log handler to collect and store log records up to a certain amount
 #   records are accessible by their unique index
 class RecordingHandler( logging.Handler ):
+
     def __init__(self, maxCntRecords: int =  100000 )->None:
         logging.Handler.__init__(self=self)
         self.maxCntRecords = maxCntRecords
         self.records = deque( maxlen=self.maxCntRecords )  # type: deque[HLogRecord]
         self.entireAdded = 0
+
+        self.levelNamesFilter = {
+            "ERROR"    : False,
+            "CRITICAL" : False,
+            "INFO"     : False,
+            "DEBUG"    : False,
+            "WARNING"  : True,
+        }
 
     def emit(self, record : HLogRecord )->None:
         self.entireAdded += 1
@@ -126,8 +135,15 @@ class RecordingHandler( logging.Handler ):
         relIdx = idx - self.minIdx()
         assert relIdx >= 0 and relIdx < self.maxCntRecords
         return self.records[ relIdx ]
+    
+    def idxToRelIdx( self, idx: int )->int:
+        return idx - self.minIdx()
 
-    def getChildren( self, idx = None ):
+    def isFiltered( self, record : HLogRecord ):
+        # filter by levelname
+        return self.levelNamesFilter[ record.levelname ]
+
+    def getFilteredChildren( self, idx = None ):
         if idx != None:
             relIdx = min( idx, idx - (self.entireAdded - self.maxCntRecords) )
             record = self.records[ relIdx ]
@@ -141,12 +157,12 @@ class RecordingHandler( logging.Handler ):
             child = self.records[ relChildIdx ]
             if child.hierarchyStage <= parentHierarchyStage:
                 break
-            if child.hierarchyStage == parentHierarchyStage + 1:
+            if (child.hierarchyStage == parentHierarchyStage + 1) and not self.isFiltered( child ) :
                 children.append( relChildIdx + self.minIdx() )
             relChildIdx += 1
         return children
 
-    def cntChildren( self, idx ):
+    def cntFilteredChildren( self, idx ):
         if idx != None:
             relIdx = min( idx, idx - (self.entireAdded - self.maxCntRecords) )
             record = self.records[ relIdx ]
@@ -160,7 +176,7 @@ class RecordingHandler( logging.Handler ):
             child = self.records[ relChildIdx ]
             if child.hierarchyStage <= parentHierarchyStage:
                 break
-            if child.hierarchyStage == parentHierarchyStage + 1:
+            if (child.hierarchyStage == parentHierarchyStage + 1) and not self.isFiltered( child ) :
                 cnt += 1
             relChildIdx += 1
         return cnt

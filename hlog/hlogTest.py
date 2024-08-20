@@ -131,19 +131,19 @@ class TestHierarchicalLog(unittest.TestCase):
 
     def test_getChildren( self ):
         self.fillLog()
-        self.assertEqual( len( self.recordingHandler.getChildren( 0 ) ), 2  )
-        self.assertEqual( len( self.recordingHandler.getChildren( 1 ) ), 1  )
-        self.assertEqual( len( self.recordingHandler.getChildren( 2 ) ), 0  )
-        self.assertEqual( len( self.recordingHandler.getChildren( 3 ) ), 0  )
-        self.assertEqual( len( self.recordingHandler.getChildren( 4 ) ), 0  )
+        self.assertEqual( len( self.recordingHandler.getFilteredChildren( 0 ) ), 2  )
+        self.assertEqual( len( self.recordingHandler.getFilteredChildren( 1 ) ), 1  )
+        self.assertEqual( len( self.recordingHandler.getFilteredChildren( 2 ) ), 0  )
+        self.assertEqual( len( self.recordingHandler.getFilteredChildren( 3 ) ), 0  )
+        self.assertEqual( len( self.recordingHandler.getFilteredChildren( 4 ) ), 0  )
 
     def test_cntChildren( self):
         self.fillLog()
-        self.assertEqual( self.recordingHandler.cntChildren( 0 ), 2  )
-        self.assertEqual( self.recordingHandler.cntChildren( 1 ), 1  )
-        self.assertEqual( self.recordingHandler.cntChildren( 2 ), 0  )
-        self.assertEqual( self.recordingHandler.cntChildren( 3 ), 0  )
-        self.assertEqual( self.recordingHandler.cntChildren( 4 ), 0  )
+        self.assertEqual( self.recordingHandler.cntFilteredChildren( 0 ), 2  )
+        self.assertEqual( self.recordingHandler.cntFilteredChildren( 1 ), 1  )
+        self.assertEqual( self.recordingHandler.cntFilteredChildren( 2 ), 0  )
+        self.assertEqual( self.recordingHandler.cntFilteredChildren( 3 ), 0  )
+        self.assertEqual( self.recordingHandler.cntFilteredChildren( 4 ), 0  )
 
     def test_parentIdx( self ):
         self.fillLog()

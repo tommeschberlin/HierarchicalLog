@@ -122,7 +122,7 @@ class TestHlogText(unittest.TestCase):
     def getPosAtParent(self, idx):
         parentIdx = self.hLogText.parentIdx( idx )
         pos = 0
-        for childIdx in self.hLogText.getChildren( parentIdx ):
+        for childIdx in self.hLogText.getFilteredChildren( parentIdx ):
             if childIdx == idx:
                 return pos
             pos += 1
@@ -176,7 +176,7 @@ class TestHlogText(unittest.TestCase):
         self.assertEqual( text, record.msg )
         endCol = int(end.split('.')[1])
         expectedEndCol = len(text)
-        if self.hLogText.cntChildren( idx ) > 0:
+        if self.hLogText.cntFilteredChildren( idx ) > 0:
             expectedEndCol += 1 # because of shon icon
         self.assertEqual( expectedEndCol, endCol, "Idx %s: col of last message letter should match endpos" % idx )
             
@@ -205,7 +205,7 @@ class TestHlogText(unittest.TestCase):
                 self.assertEqual( col, expectedTagEndCol, "Idx %s: Endcolcheck for tag %s" % (idx,name))
                 tagoff.append(name)
 
-        if self.hLogText.cntChildren( idx ) == 0:
+        if self.hLogText.cntFilteredChildren( idx ) == 0:
             self.assertEqual( 3, len(tagon), "Idx %s: Record without children should have 3 tags"  % idx ) # Type-Tag, Idx-Tag, Stage-Tag
         else:
             self.assertEqual( 4, len(tagon), "Idx %s: Record with children should have 4 tags" % idx ) # additional "ALTER_SHOW_RECORDS"-Tag
@@ -349,5 +349,5 @@ def main():
     App.mainloop()
 
 if __name__ == '__main__':
-    unittest.main(failfast=True)
-    #main()
+    #unittest.main(failfast=True)
+    main()
