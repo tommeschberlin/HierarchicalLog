@@ -262,7 +262,10 @@ class HierarchicalLogText(RecordingHandler, Frame):
         # if over +/- button no de/activation 
         if self.AlterShowSubrecordsTag in self.logText.tag_names( mouseIndex ):
             return
-        self.alterActiveRecord( self.idxFromMark( self.markFromIndex( textIndex ) ) )
+        
+        mark = self.markFromIndex( textIndex )
+        if mark is not None:
+            self.alterActiveRecord( self.idxFromMark( mark ) )
 
     def clearCache( self ):
         self.lastHandledParentIdx = -1
@@ -308,6 +311,9 @@ class HierarchicalLogText(RecordingHandler, Frame):
                 self.updateParent( self.parentRecord( idx ) )
                 self.lastHandledRecordHierarchyStage = record.hierarchyStage
 
+        if self.activeIdx in indicees:
+            self.unsetActiveRecord()
+
         if groupBegin:
             self.logText.delete( groupBegin, groupEnd )
 
@@ -341,7 +347,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
         record = self.record( self.activeIdx )
         markIndex = self.indexFromIdx( self.activeIdx )
         begin = self.logText.index( markIndex + " linestart")
-        end = self.logText.index( begin + " lineend +1c" )
+        end = self.logText.index( begin + " lineend" )
         self.logText.tag_remove( record.levelname + "_ACTIVE", begin, end )
         self.logText.tag_add( record.levelname, begin, end )
         self.activeIdx = self.maxCntRecords
@@ -355,7 +361,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
         record = self.record( idx )
         markIndex = self.indexFromIdx( idx )
         begin = self.logText.index( markIndex + " linestart")
-        end = self.logText.index( begin + " lineend +1c" )
+        end = self.logText.index( begin + " lineend" )
         self.logText.tag_remove( record.levelname, begin, end )
         self.logText.tag_add( record.levelname + "_ACTIVE", begin, end )
         self.activeIdx = idx

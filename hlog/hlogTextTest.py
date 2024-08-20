@@ -53,7 +53,7 @@ class App(tkinter.Frame):
 
         start = time.time()
         with EnterLowerLogHierarchyStage( "0-1 Stage 0 -> 1", self.logger ) :
-            for i in range(10000):
+            for i in range(1000):
                 self.logger.info("info " + str(i))
         print( "insert: %s" % (time.time() - start))
 
@@ -318,6 +318,16 @@ class TestHlogText(unittest.TestCase):
         self.hLogText.alterShowSubrecords( event )
         self.hLogText.alterShowSubrecords( event )
 
+    # Test 
+    # @unittest.skip("skipped temporarily")
+    def test_alterActivceRecordIfAHiddenIsActive( self ):
+        self.hLogText.alterActiveRecord( 2 )
+        self.hLogText.alterShowSubrecords( self.getEventForIdx( 1 ) )
+
+        # record which was marked active was removeod bei alterShowSubrecords, therefore the acitveIdx shoud be reset
+        self.assertEqual( self.hLogText.activeIdx, self.hLogText.maxCntRecords, "If hiding active records, activeIdx should be resetted")
+        
+        self.hLogText.alterActiveRecord( 0 )
 
 # create programm window and start mainloop
 Root = Tk()
@@ -336,5 +346,5 @@ def main():
     App.mainloop()
 
 if __name__ == '__main__':
-    ##unittest.main(failfast=True)
-    main()
+    unittest.main(failfast=True)
+    #main()
