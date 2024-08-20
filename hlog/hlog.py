@@ -12,6 +12,8 @@ formerLogFactory = None
 def initLogHierarchy(logger: logging.Logger = logging.getLogger()):
     global formerLogFactory
     
+    assert formerLogFactory == None
+
     logger.hierarchyStage = 0
 
     if not formerLogFactory:
@@ -24,6 +26,12 @@ def initLogHierarchy(logger: logging.Logger = logging.getLogger()):
             return record
 
         logging.setLogRecordFactory(logFactory)
+
+def resetLogHierarchy():
+    global formerLogFactory
+    if formerLogFactory:
+        logging.setLogRecordFactory(formerLogFactory)
+    formerLogFactory = None
 
 def __getHierarchyStage(logger):
     try:

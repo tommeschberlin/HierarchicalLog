@@ -31,6 +31,11 @@ class App(tkinter.Frame):
         self.hLogText.pack(fill=BOTH, expand=True)
         self.logger.addHandler(self.hLogText)
 
+    def destroy(self):
+        self.logger.removeHandler( self.hLogText )
+        resetLogHierarchy()
+        super().destroy()
+
     def start(self):
        # self.logger.info("info")
        # self.logger.debug("debug")
@@ -63,10 +68,9 @@ class TestHlogText(unittest.TestCase):
         Root.iconify()
         self.hLogText = self.app.hLogText
         self.fillLog()
-        self.app.update()
 
     def tearDown(self):
-        self.app.quit()
+        self.app.destroy()
 
     def run(self, result=None):
         if result is None:
@@ -322,6 +326,9 @@ Root.wm_attributes("-topmost", 1)
 
 def main():
     global App
+    Root = Tk()
+    Root.resizable(True,True)
+    Root.wm_attributes("-topmost", 1)
     App = App( Root )
     App.pack(fill=BOTH, expand=True)
     Root.update()
