@@ -20,6 +20,7 @@ class TestHierarchicalLog(unittest.TestCase):
         #self.logToConsole = LogToConsole( globalLog )
         self.logger = logging.getLogger('test')
         self.logger.setLevel(logging.DEBUG)
+        initLogHierarchy( self.logger )
         self.fileHandler = logging.FileHandler(self.logFile)
         # fileHandler.setFormatter(logFormatter)
         self.logger.addHandler(self.fileHandler)
@@ -32,10 +33,18 @@ class TestHierarchicalLog(unittest.TestCase):
         self.fileHandler = None
         self.logger.removeHandler(self.recordingHandler)
         self.recordingHandler = None
+        resetLogHierarchy()
 
     def logFileContent(self):
         with open(self.logFile) as f:
             return f.readlines()
+
+    def fillLog(self):
+        with EnterLowerLogHierarchyStage( "00", self.logger ) :
+            with EnterLowerLogHierarchyStage( "10", self.logger ) :
+                self.logger.debug("20")
+            self.logger.warning("11")
+        self.logger.warning("01")
 
     # Test 
     # @unittest.skip("skipped temporarily")
@@ -50,7 +59,6 @@ class TestHierarchicalLog(unittest.TestCase):
     # Test RecordingHandler
     # @unittest.skip("skipped temporarily")
     def test_RecordingHandler(self):
-        initLogHierarchy(self.logger)
         recordingHandler = RecordingHandler(10)
         self.logger.addHandler(recordingHandler)
 
@@ -67,8 +75,6 @@ class TestHierarchicalLog(unittest.TestCase):
     # Test if, hierarchy stage can be set in python logging system
     # @unittest.skip("skipped temporarily")
     def test_EnterLowerLogHierarchyStage(self):
-        initLogHierarchy(self.logger)
-
         self.logger.info('Started')
 
         def function():
@@ -87,8 +93,6 @@ class TestHierarchicalLog(unittest.TestCase):
     # Test if, hierarchy stage can be set in python logging system
     # @unittest.skip("skipped temporarily")
     def test_LowerLogHierarchyStage(self):
-        initLogHierarchy(self.logger)
-
         self.logger.info('Started')
 
         def function():
@@ -103,13 +107,6 @@ class TestHierarchicalLog(unittest.TestCase):
         self.assertEqual( self.recordingHandler.at(1).hierarchyStage, 1 , "Check Hierarchy stage" )
         self.assertEqual( self.recordingHandler.at(2).hierarchyStage, 0 , "Check Hierarchy stage" )
     
-    def fillLog(self):
-        with EnterLowerLogHierarchyStage( "00", self.logger ) :
-            with EnterLowerLogHierarchyStage( "10", self.logger ) :
-                self.logger.debug("20")
-            self.logger.warning("11")
-        self.logger.warning("01")
-
     # Test if, hierarchy stage can be set in python logging system
     # @unittest.skip("skipped temporarily")
     def test_maxIdx(self):
@@ -136,6 +133,17 @@ class TestHierarchicalLog(unittest.TestCase):
         self.assertEqual( len( self.recordingHandler.getFilteredChildren( 2 ) ), 0  )
         self.assertEqual( len( self.recordingHandler.getFilteredChildren( 3 ) ), 0  )
         self.assertEqual( len( self.recordingHandler.getFilteredChildren( 4 ) ), 0  )
+
+    def test_getFilteredChildren( self ):
+        self.fillLog()
+        self.assertEqual( len( self.recordingHandler.getFilteredChildren( None ) ), 2  )
+        self.assertEqual( len( self.recordingHandler.getFilteredChildren( 1 ) ), 1  )
+
+        self.recordingHandler.levelNamesFilter["WARNING"] = False
+        self.assertEqual( len( self.recordingHandler.getFilteredChildren( None ) ), 1  )
+
+        self.recordingHandler.levelNamesFilter["DEBUG"] = False
+        self.assertEqual( len( self.recordingHandler.getFilteredChildren( 1 ) ), 0  )
 
     def test_cntChildren( self):
         self.fillLog()

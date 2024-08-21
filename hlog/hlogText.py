@@ -186,7 +186,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
 
         for idx in indicees:
             record = self.record( idx )
-            if self.isFiltered( record ):
+            if not self.passedFilter( record ):
                 continue
 
             #  assert self.logText.tag_names().count( self.markFromIdx( record.idx) ) == 0 
@@ -214,7 +214,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
         else:
             parent = self.parentRecord( record.idx )
 
-        isShow = not self.isFiltered( record )
+        isShow = self.passedFilter( record )
         if isShow and ( not parent is None ):
             if parent.showSubrecords is None:
                 parent.showSubrecords = self.DefaultShowSubrecords
@@ -247,7 +247,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
 
     # find showState recursive
     def isShow( self, idx ):
-        if self.isFiltered( self.record( idx ) ):
+        if not self.passedFilter( self.record( idx ) ):
             return False
         parentIdx = self.parentIdx( idx )
         if parentIdx is None:

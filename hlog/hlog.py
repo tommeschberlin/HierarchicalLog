@@ -106,10 +106,10 @@ class RecordingHandler( logging.Handler ):
         self.entireAdded = 0
 
         self.levelNamesFilter = {
-            "ERROR"    : False,
-            "CRITICAL" : False,
-            "INFO"     : False,
-            "DEBUG"    : False,
+            "ERROR"    : True,
+            "CRITICAL" : True,
+            "INFO"     : True,
+            "DEBUG"    : True,
             "WARNING"  : True,
         }
 
@@ -139,9 +139,11 @@ class RecordingHandler( logging.Handler ):
     def idxToRelIdx( self, idx: int )->int:
         return idx - self.minIdx()
 
-    def isFiltered( self, record : HLogRecord ):
+    def passedFilter( self, record : HLogRecord ):
         # filter by levelname
-        return self.levelNamesFilter[ record.levelname ]
+        if not self.levelNamesFilter[ record.levelname ]:
+            return False
+        return True
 
     def getFilteredChildren( self, idx = None ):
         if idx != None:
@@ -157,12 +159,12 @@ class RecordingHandler( logging.Handler ):
             child = self.records[ relChildIdx ]
             if child.hierarchyStage <= parentHierarchyStage:
                 break
-            if (child.hierarchyStage == parentHierarchyStage + 1) and not self.isFiltered( child ) :
+            if (child.hierarchyStage == parentHierarchyStage + 1) and self.passedFilter( child ) :
                 children.append( relChildIdx + self.minIdx() )
             relChildIdx += 1
         return children
 
-    def cntFilteredChildren( self, idx ):
+    def cntFilteredChildren( self, idx = None ):
         if idx != None:
             relIdx = min( idx, idx - (self.entireAdded - self.maxCntRecords) )
             record = self.records[ relIdx ]
@@ -176,7 +178,7 @@ class RecordingHandler( logging.Handler ):
             child = self.records[ relChildIdx ]
             if child.hierarchyStage <= parentHierarchyStage:
                 break
-            if (child.hierarchyStage == parentHierarchyStage + 1) and not self.isFiltered( child ) :
+            if (child.hierarchyStage == parentHierarchyStage + 1) and self.passedFilter( child ) :
                 cnt += 1
             relChildIdx += 1
         return cnt
