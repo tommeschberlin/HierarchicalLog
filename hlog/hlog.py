@@ -76,9 +76,10 @@ class HLogRecord( logging.LogRecord ):
     """
 
     def __init__(self):
-        self.hierarchyStage = -1
         self.idx = -1
-        self.showSubrecords = False
+        self.hierarchyStage = -1
+        self.showSubrecords = None
+        self.maxChildLevelNo = -1
 
 # lowers the log hierarchy stage and automatically raises on leaving the function context
 # usage:
@@ -107,13 +108,22 @@ class RecordingHandler( logging.Handler ):
 
         self.levelNamesFilter = {
             "ERROR"    : True,
-            "CRITICAL" : True,
+            "CRITICAL" : True, # never filter out this
             "INFO"     : True,
             "DEBUG"    : True,
             "WARNING"  : True,
         }
 
     def emit(self, record : HLogRecord )->None:
+        # fill HLogRecord members
+        record.idx = self.entireAdded
+        
+        # record.hierarchyStage = -1 
+        """already set by logFactory"""
+
+        record.showSubrecords = None
+        record.maxChildLevelNo = -1
+
         self.entireAdded += 1
         self.records.append( record )
 
