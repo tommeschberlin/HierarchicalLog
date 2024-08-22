@@ -62,18 +62,27 @@ class HierarchicalLogText(RecordingHandler, Frame):
             highlightFont = font.Font(family = highlightFont)
         highlightFont.configure(weight = 'bold')
 
-        self.logText.tag_config("ERROR", foreground="red" )
-        self.logText.tag_config("CRITICAL", foreground="white", background="red", font=highlightFont )
-        self.logText.tag_config("INFO", foreground="black" )
-        self.logText.tag_config("DEBUG", foreground="darkgrey" )
-        self.logText.tag_config("WARNING", foreground="orange" )
+        self.levelTagNames = {
+            "ERROR"    : "LevelERROR",
+            "CRITICAL" : "LevelCRITICAL",
+            "INFO"     : "LevelINFO",
+            "DEBUG"    : "LevelDEBUG",
+            "WARNING"  : "LevelWARNING",
+        }
+        self.levelTagActiveSuffix = "_ACTIVE"
+
+        self.logText.tag_config(self.levelTagNames["ERROR"], foreground="red" )
+        self.logText.tag_config(self.levelTagNames["CRITICAL"], foreground="white", background="red", font=highlightFont )
+        self.logText.tag_config(self.levelTagNames["INFO"], foreground="black" )
+        self.logText.tag_config(self.levelTagNames["DEBUG"], foreground="darkgrey" )
+        self.logText.tag_config(self.levelTagNames["WARNING"], foreground="orange" )
 
         activeBackground = 'darkgray'
-        self.logText.tag_config("ERROR_ACTIVE", foreground="red", background=activeBackground )
-        self.logText.tag_config("CRITICAL_ACTIVE", foreground="white", background="darkred", font=highlightFont )
-        self.logText.tag_config("INFO_ACTIVE", foreground="black", background=activeBackground )
-        self.logText.tag_config("DEBUG_ACTIVE", foreground="white", background=activeBackground )
-        self.logText.tag_config("WARNING_ACTIVE", foreground="orange", background=activeBackground )
+        self.logText.tag_config(self.levelTagNames["ERROR"] + self.levelTagActiveSuffix , foreground="red", background=activeBackground )
+        self.logText.tag_config(self.levelTagNames["CRITICAL"] + self.levelTagActiveSuffix, foreground="white", background="darkred", font=highlightFont )
+        self.logText.tag_config(self.levelTagNames["INFO"] + self.levelTagActiveSuffix, foreground="black", background=activeBackground )
+        self.logText.tag_config(self.levelTagNames["DEBUG"] + self.levelTagActiveSuffix, foreground="white", background=activeBackground )
+        self.logText.tag_config(self.levelTagNames["WARNING"] + self.levelTagActiveSuffix, foreground="orange", background=activeBackground )
 
         for stage in range(0,10):
             self.logText.tag_config("STAGE%s" % stage, lmargin1=[stage * 15])
@@ -118,6 +127,13 @@ class HierarchicalLogText(RecordingHandler, Frame):
                 return tagName
         return None
         
+    def levelTagNameFromIndex( self, index ):
+        tagNames = self.logText.tag_names( self.logText.index( index + " lineend - 1c" ) )
+        for tagName in tagNames:
+            if tagName.startswith("Level"):
+                return tagName
+        return None
+    
     def idxFromMark( self, mark ):
         return int(mark.split("Record")[1])
     
@@ -163,19 +179,46 @@ class HierarchicalLogText(RecordingHandler, Frame):
             
             self.logText.tag_add( self.AlterShowSubrecordsTag, begin, begin + " + 1c" )
             self.setDefaultRecordTags( begin, parent )
+            self.updateRecordLevelTag( begin, parent, True )
 
+    def updateRecordLevelTag( self, begin, record : HLogRecord, force = False ):
+        """ To show WARNING,ERROR and CRITCAL colors at parents """
+        newLevelName = record.levelname
+        if record.maxChildLevelNo > 0:
+            newLevelName = logging.getLevelName( record.maxChildLevelNo )
 
-    def setDefaultRecordTags( self, begin, record ):
-        if record.idx == 2:
-            pass
+        newLevelTagName = self.levelTagNames[ newLevelName ]
+        isActive = False
+        if self.activeIdx == record.idx:
+            newLevelTagName += self.levelTagActiveSuffix
+            isActive = True
+
+        currentLevelTagName = self.levelTagNameFromIndex( begin )
+        if currentLevelTagName == newLevelTagName and not force:
+            return
+        
+        currentEnd = newEnd = self.logText.index( begin + " lineend" )
+
+        if currentLevelTagName is not None:
+            if currentLevelTagName.endswith(self.levelTagActiveSuffix):
+                currentEnd = self.logText.index( currentEnd + " +1c" )
+            self.logText.tag_remove( currentLevelTagName, begin, currentEnd )
+
+        if isActive:
+            newEnd = self.logText.index( newEnd + " +1c" )
+
+        self.logText.tag_add( newLevelTagName, begin, newEnd )
+
+    def setDefaultRecordTags( self, begin, record : HLogRecord):
         end = self.logText.index( begin + " lineend" )
-        self.logText.tag_add( record.levelname, begin, end )
+        # self.logText.tag_add( self.levelTagNames[ record.levelname ], begin, end )
         self.logText.tag_add( "STAGE%s" % record.hierarchyStage, begin, end )
         self.logText.tag_add( self.markFromIdx( record.idx ), begin, end )
 
     # inserts a group of records at index 
     def insertRecordsAt(self, indicees, index, parent : HLogRecord = None):
         cntInserted = 0
+        maxChildLevelNo = -1
 
         if parent != None:
             # no parent treatment needed if already done for a previous record
@@ -183,9 +226,12 @@ class HierarchicalLogText(RecordingHandler, Frame):
                 self.updateParent( parent )
             if not parent.showSubrecords:
                 return 0
+            maxChildLevelNo = parent.maxChildLevelNo
 
         for idx in indicees:
             record = self.record( idx )
+            if record.levelno > maxChildLevelNo:
+                maxChildLevelNo = record.levelno
             if not self.passedFilter( record ):
                 continue
 
@@ -194,18 +240,22 @@ class HierarchicalLogText(RecordingHandler, Frame):
             begin = self.logText.index( index + " + %s lines linestart" % cntInserted )
             self.logText.insert( begin, record.msg + '\n', )
             self.setDefaultRecordTags( begin, record )
+            self.updateRecordLevelTag( begin, record )
             cntInserted += 1
 
             # only not last element can have children
             if record.idx < self.maxIdx():
                 begin = self.logText.index( index + " + %s lines linestart" % cntInserted )
                 cntInserted += self.insertRecordsAt(self.getFilteredChildren( record.idx ), begin, record )
+
+        if parent != None and maxChildLevelNo > parent.maxChildLevelNo:
+            begin = self.logText.index( self.indexFromIdx( parent.idx ) + " linestart" )
+            parent.maxChildLevelNo = maxChildLevelNo
+            self.updateRecordLevelTag( begin, parent )
         
         return cntInserted
 
     def emit(self, record : HLogRecord)->None:
-        record.idx = self.entireAdded
-        record.showSubrecords = None
         RecordingHandler.emit( self, record )
 
         # no parent retrieving needed if already done for a previous record
@@ -309,7 +359,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
         groupEnd = ''
         
         if self.activeIdx in indicees:
-            self.unsetActiveRecord()
+            self.alterActiveRecord(self.activeIdx)
 
         for idx in indicees:
             record = self.record( idx )
@@ -328,7 +378,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
             
             # no parent treatment needed if alrady done for a previous child
             if record.hierarchyStage != self.lastHandledRecordHierarchyStage:
-                self.updateParent( self.parentRecord( idx ) )
+                self.updateParent( self.record( parentIdx ) )
                 self.lastHandledRecordHierarchyStage = record.hierarchyStage
 
         if groupBegin:
@@ -380,32 +430,19 @@ class HierarchicalLogText(RecordingHandler, Frame):
             nextIdx = self.idxFromMark( self.markFromIndex( nextLineIndex ) )
             self.alterActiveRecord( nextIdx )
 
-    def unsetActiveRecord( self ):
-        if self.activeIdx > self.maxIdx():
-            return
-        record = self.record( self.activeIdx )
-        markIndex = self.indexFromIdx( self.activeIdx )
-        begin = self.logText.index( markIndex + " linestart")
-        end = self.logText.index( begin + " lineend" )
-        activeEnd = self.logText.index( end + " +1c" )
-        self.logText.tag_remove( record.levelname + "_ACTIVE", begin, activeEnd )
-        self.logText.tag_add( record.levelname, begin, end )
-        self.activeIdx = self.maxCntRecords
-
     def alterActiveRecord( self, idx ):
-        lastActiveIdx = self.activeIdx
-        if self.activeIdx <= self.maxIdx():
-            self.unsetActiveRecord()
-        if idx == lastActiveIdx:
+        currentActiveIdx = self.activeIdx
+        if currentActiveIdx <= self.maxIdx():
+            self.activeIdx = self.maxCntRecords
+            begin = self.logText.index( self.indexFromIdx( currentActiveIdx ) + " linestart" )
+            self.updateRecordLevelTag( begin, self.record(currentActiveIdx) )
+        if idx == currentActiveIdx:
+            """ only deactivated the current active one"""
             return
-        record = self.record( idx )
-        markIndex = self.indexFromIdx( idx )
-        begin = self.logText.index( markIndex + " linestart")
-        end = self.logText.index( begin + " lineend" )
-        activeEnd = self.logText.index( end + " +1c" )
-        self.logText.tag_remove( record.levelname, begin, end )
-        self.logText.tag_add( record.levelname + "_ACTIVE", begin, activeEnd )
+
         self.activeIdx = idx
+        begin = self.logText.index( self.indexFromIdx( idx ) + " linestart" )
+        self.updateRecordLevelTag( begin, self.record( idx ) )
         
     def showEnd(self):
         self.activeIdx = self.maxCntRecords

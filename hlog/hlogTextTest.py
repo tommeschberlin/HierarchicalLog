@@ -190,7 +190,7 @@ class TestHlogText(unittest.TestCase):
             if type == "image":
                 self.assertEqual( col, 0)
             elif type == "tagon":
-               self.assertEqual( col, 0)
+               self.assertEqual( col, 0, "%s for tag %s at idx %s should be at col 0 not at col %s" %(type,name,idx,col))
                # some creepy exception for ACTIVE
                if name.endswith("_ACTIVE"):
                    tagoff.append(name)
@@ -334,6 +334,12 @@ class TestHlogText(unittest.TestCase):
         self.assertEqual( self.hLogText.activeIdx, self.hLogText.maxCntRecords, "If hiding active records, activeIdx should be resetted")
         
         self.hLogText.alterActiveRecord( 0 )
+
+    def test_markFromIndex( self ):
+        pass
+
+    def test_updateParentLevelTag( self ):
+        pass
 
 # create programm window and start mainloop
 Root = Tk()
