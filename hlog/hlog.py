@@ -4,12 +4,14 @@ import logging
 
 formerLogFactory = None
 
-# initialises the log hierarchy for python logger
-#  add member hierarchyStage and init its value to 0
-#  lower hierachy stages have higher numbers
-#  after initLogHierarchy log entries will be created with member hierachyStage set from the current hierachy level
-#  of the logger
 def initLogHierarchy(logger: logging.Logger = logging.getLogger()):
+    """
+    initialises the log hierarchy for python logger
+      add member hierarchyStage and init its value to 0
+      lower hierachy stages have higher numbers
+      after initLogHierarchy log entries will be created with member hierachyStage set from the current hierachy level
+      of the logger
+    """
     global formerLogFactory
     
     assert formerLogFactory == None
@@ -28,6 +30,9 @@ def initLogHierarchy(logger: logging.Logger = logging.getLogger()):
         logging.setLogRecordFactory(logFactory)
 
 def resetLogHierarchy():
+    """
+    Removes the log hierarchy functionality from logging
+    """
     global formerLogFactory
     if formerLogFactory:
         logging.setLogRecordFactory(formerLogFactory)
@@ -40,22 +45,24 @@ def __getHierarchyStage(logger):
         logger.hierarchyStage = -1
         return -1
     
-# lowers the level of hierarchy
 def lowerHierarchyStage(logger: logging.Logger = logging.getLogger()):
+    """ lowers the level of hierarchy """
     logger.hierarchyStage += 1
 
-# raises level of hierarchy
 def raiseHierarchyStage(logger = logging.getLogger()):
+    """ raises level of hierarchy """
     assert logger.hierarchyStage > 0, "Hierarchy stage must be greater 0 for this!"
     logger.hierarchyStage -= 1
 
-# lowers the log hierarchy stage and automatically raieses on leaving the "with" context
-# usage:
-# with EnterLowerLogHierarchyStage( "Message text with previous log hierarchy stage here", logger ) :
-#     logger.info("something with already lowered log hierarchy stage here")
-#
-# logger.info("something with again raised hierarchy stage here")
 class EnterLowerLogHierarchyStage():
+    """
+    lowers the log hierarchy stage and automatically raieses on leaving the "with" context
+    usage:
+    with EnterLowerLogHierarchyStage( "Message text with previous log hierarchy stage here", logger ) :
+        logger.info("something with already lowered log hierarchy stage here")
+    
+    logger.info("something with again raised hierarchy stage here")
+    """
     def __init__(self, msg: str, logger: logging.Logger = logging.getLogger() ):
         assert isinstance( msg, str ),  "Arg msg has to be of type str!"
         self.logger = logger
@@ -82,14 +89,15 @@ class HLogRecord( logging.LogRecord ):
         self.showSubrecords = None
         self.maxChildLevelNo = -1
 
-# lowers the log hierarchy stage and automatically raises on leaving the function context
-# usage:
-# def function():
-#   lowerHierachyStage = LowerLogHierarchyStage( "Message text with previous log hierarchy stage here", logger ) :
-#   logger.info("something with already lowered log hierarchy stage here")
-#
-# logger.info("something with again raised hierarchy stage here")
 class LowerLogHierarchyStage():
+    """
+    lowers the log hierarchy stage and automatically raises on leaving the function context
+    usage:
+    def function():
+       lowerHierachyStage = LowerLogHierarchyStage( "Message text with previous log hierarchy stage here", logger ) :
+       logger.info("something with already lowered log hierarchy stage here")
+    logger.info("something with again raised hierarchy stage here")
+    """
     def __init__(self, logger: logging.Logger = logging.getLogger() ):
         self.logger = logger
         lowerHierarchyStage(self.logger)
@@ -97,9 +105,11 @@ class LowerLogHierarchyStage():
     def __del__(self ):
         raiseHierarchyStage( self.logger )
 
-# log handler to collect and store log records up to a certain amount
-#   records are accessible by their unique index
 class RecordingHandler( logging.Handler ):
+    """
+    log handler to collect and store log records up to a certain amount
+    records are accessible by their unique absolute index
+    """
 
     def __init__(self, maxCntRecords: int =  100000 )->None:
         logging.Handler.__init__(self=self)
@@ -116,6 +126,12 @@ class RecordingHandler( logging.Handler ):
         }
 
     def emit(self, record : HLogRecord )->None:
+        """
+        emit method, see logging.Handler
+
+        inits/fills the new members for hlog functionality
+        """
+
         # fill HLogRecord members
         record.idx = self.entireAdded
         
@@ -129,12 +145,15 @@ class RecordingHandler( logging.Handler ):
         self.records.append( record )
 
     def maxIdx(self):
+        """Retrieves the maximal available absolute idx"""
         return self.entireAdded - 1
 
     def minIdx(self):
+        """Retrieves the minimal available absolute idx"""
         return max( 0, self.entireAdded - self.maxCntRecords )
     
     def at(self, idx)->HLogRecord:
+        """Retrieves a record by its idx, returns None if not found"""
         if idx == None:
             return None
         relIdx = min( idx, idx - (self.entireAdded - self.maxCntRecords) )
@@ -143,20 +162,23 @@ class RecordingHandler( logging.Handler ):
         return None
     
     def record( self, idx )->HLogRecord:
+        """Retrieves a record by its idx, asserts if not found"""
         relIdx = idx - self.minIdx()
         assert relIdx >= 0 and relIdx < self.maxCntRecords
         return self.records[ relIdx ]
     
     def idxToRelIdx( self, idx: int )->int:
+        """Calculates the relative idx from absolute idx"""
         return idx - self.minIdx()
 
     def passedFilter( self, record : HLogRecord ):
-        # filter by levelname
+        """Filters by levelname """
         if not self.levelNamesFilter[ record.levelname ]:
             return False
         return True
 
     def getFilteredChildren( self, idx = None ):
+        """Retrieves children for an idx, uses the passedFilter method to filter out only the wanted children"""
         if idx != None:
             relIdx = min( idx, idx - (self.entireAdded - self.maxCntRecords) )
             record = self.records[ relIdx ]
@@ -176,6 +198,7 @@ class RecordingHandler( logging.Handler ):
         return children
 
     def cntFilteredChildren( self, idx = None ):
+        """Retrieves count of children for an idx, uses the passedFilter method to filter out only the wanted children"""
         if idx != None:
             relIdx = min( idx, idx - (self.entireAdded - self.maxCntRecords) )
             record = self.records[ relIdx ]
@@ -195,6 +218,7 @@ class RecordingHandler( logging.Handler ):
         return cnt
 
     def parentIdx( self, idx ):
+        """Retrieves the parent idx record for the idx"""
         relIdx = min( idx, idx - (self.entireAdded - self.maxCntRecords) )
         record = self.records[ relIdx ]
         if record.hierarchyStage <= 0:
@@ -208,6 +232,7 @@ class RecordingHandler( logging.Handler ):
         return None
 
     def parentRecord( self, idx )->HLogRecord:
+        """Retrieves the parent record for the idx"""
         parentIdx = self.parentIdx( idx )
         if parentIdx != None:
             return self.record( parentIdx )
