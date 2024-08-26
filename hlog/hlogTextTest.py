@@ -8,7 +8,7 @@ from hlog import *
 from hlogText import *
 
 # themes 'winnative', 'clam', 'alt', 'default', 'classic', 'vista', 'xpnative'
-Theme = 'default'
+#Theme = 'default'
 
 class App(tkinter.Frame):
     # init vars, create UI, start
@@ -16,9 +16,6 @@ class App(tkinter.Frame):
     def __init__(self, root):
         super().__init__(root)
 
-        self.style = Style(root)
-        self.style.theme_use(Theme)
-    
         # create logger
         self.logger = logging.getLogger('test')
         self.logger.setLevel(logging.DEBUG)
@@ -35,27 +32,6 @@ class App(tkinter.Frame):
         self.logger.removeHandler( self.hLogText )
         resetLogHierarchy()
         super().destroy()
-
-    def start(self):
-       # self.logger.info("info")
-       # self.logger.debug("debug")
-       # self.logger.warning("warning")
-       # self.logger.error("error")
-       # self.logger.critical("critical")
-
-        with EnterLowerLogHierarchyStage( "0-0 Stage 0 -> 1", self.logger ) :
-            with EnterLowerLogHierarchyStage( "1-0 Stage 1 -> 2", self.logger ) :
-                self.logger.debug("2-0 something with already lowered log hierarchy stage here")
-                with EnterLowerLogHierarchyStage( "2-1 Stage 2 -> 3", self.logger ) :
-                    self.logger.debug("3-0 something with already lowered log hierarchy stage here")
-                self.logger.debug("2-2 something with already lowered log hierarchy stage here")
-            self.logger.warning("1-1 something with already lowered log hierarchy stage here")
-
-        start = time.time()
-        with EnterLowerLogHierarchyStage( "0-1 Stage 0 -> 1", self.logger ) :
-            for i in range(1000):
-                self.logger.info("info " + str(i))
-        print( "insert: %s" % (time.time() - start))
 
 class TestHlogText(unittest.TestCase):
     def __init__(self, methodName: str = "runTest") -> None:
@@ -346,14 +322,5 @@ Root = Tk()
 Root.resizable(True,True)
 Root.wm_attributes("-topmost", 1)
 
-def main():
-    global App
-    App = App( Root )
-    App.pack(fill=BOTH, expand=True)
-    Root.update()
-    App.after( 10, App.start() )
-    App.mainloop()
-
 if __name__ == '__main__':
-    #unittest.main(failfast=True)
-    main()
+    unittest.main(failfast=True)
