@@ -8,7 +8,8 @@ from hlog import *
 from hlogText import *
 
 # themes 'winnative', 'clam', 'alt', 'default', 'classic', 'vista', 'xpnative'
-Theme = 'default'
+# Theme = 'default'
+Theme = 'vista'
 
 class App(tkinter.Frame):
     # init vars, create UI, start
@@ -20,11 +21,11 @@ class App(tkinter.Frame):
         self.style.theme_use(Theme)
     
         # create logger
-        self.logger = logging.getLogger('test')
+        self.logger = logging.getLogger('demo')
         self.logger.setLevel(logging.DEBUG)
         initLogHierarchy(self.logger)
 
-        self.title = "HierarchicalLogTextTest"
+        self.title = "HierarchicalLogTextDemo"
 
         self.hLogText = HierarchicalLogText( self )
         self.hLogText.DefaultShowSubrecords = True
@@ -37,11 +38,11 @@ class App(tkinter.Frame):
         super().destroy()
 
     def start(self):
-       # self.logger.info("info")
-       # self.logger.debug("debug")
-       # self.logger.warning("warning")
-       # self.logger.error("error")
-       # self.logger.critical("critical")
+        self.logger.info("info")
+        self.logger.debug("debug")
+        self.logger.warning("warning")
+        self.logger.error("error")
+        self.logger.critical("critical")
 
         with EnterLowerLogHierarchyStage( "0-0 Stage 0 -> 1", self.logger ) :
             with EnterLowerLogHierarchyStage( "1-0 Stage 1 -> 2", self.logger ) :
