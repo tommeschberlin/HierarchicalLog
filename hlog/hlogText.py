@@ -95,6 +95,8 @@ class HierarchicalLogText(RecordingHandler, Frame):
         self.logText.bind('<Double-Button-1>', self.onMouseLeftDouble)
         self.logText.bind('<Key-Up>', self.onKeyUp)
         self.logText.bind('<Key-Down>', self.onKeyDown)
+        self.logText.bind('<Key-Left>', self.onKeyLeft)
+        self.logText.bind('<Key-Right>', self.onKeyRight)
 
         self.AlterShowSubrecordsTag = "ALTER_SHOW_SUBRECORDS_TAG"
         self.logText.tag_bind(self.AlterShowSubrecordsTag, '<Enter>', self.showAlterShowSubrecordsCursor )
@@ -104,6 +106,8 @@ class HierarchicalLogText(RecordingHandler, Frame):
         # some chaching
         self.lastHandledRecordHierarchyStage = -1
         self.lastHandledParentIdx = -1
+        self.lastActivePos = dict()
+
         self.clearCache()
 
     def destroy(self):
@@ -337,6 +341,59 @@ class HierarchicalLogText(RecordingHandler, Frame):
         self.lastHandledParentIdx = -1
         self.lastHandledRecordHierarchyStage = -1
 
+    def storeLastActivePos( self, recordToRestore : HLogRecord ):
+        upperViewIndex = self.logText.index( self.logText.index(f"@{0},{0}") )
+        if not recordToRestore.hierarchyStage in self.lastActivePos.keys():
+            self.lastActivePos[recordToRestore.hierarchyStage] = dict()
+        self.lastActivePos[recordToRestore.hierarchyStage][self.parentIdx( recordToRestore.idx )] =\
+            { 'idx': recordToRestore.idx, 'upperViewIndex': upperViewIndex }
+
+    def onKeyLeft(self, event):
+        if self.activeIdx <= self.maxIdx():
+            record = self.record( self.activeIdx )
+            recordToRestore = record
+            if record.showSubrecords is None:
+                record = self.at(  self.parentIdx( record.idx ) )
+                if not record:
+                    return
+            if not record.showSubrecords:
+                record = self.at( self.parentIdx( record.idx ) )
+                if not record:
+                    return
+            if record.showSubrecords:
+                # store last active in subdir
+                self.storeLastActivePos( recordToRestore ) 
+                self.clearCache()
+                record.showSubrecords = False
+                self.removeSubrecords( record )
+                self.clearCache()
+                if self.activeIdx != record.idx:
+                    self.alterActiveRecord(record.idx)
+
+    def restoreLastActivePos(self, parentRecord : HLogRecord ):
+        """ Restores last active entry """
+        hierarchyStage = parentRecord.hierarchyStage + 1
+        parentIdx = parentRecord.idx
+        if hierarchyStage in self.lastActivePos.keys():
+            if parentIdx in self.lastActivePos[ hierarchyStage ]:
+                self.alterActiveRecord( self.lastActivePos[hierarchyStage][parentIdx]['idx'] )
+                self.logText.yview( self.lastActivePos[hierarchyStage][parentIdx]['upperViewIndex'] )
+                self.logText.mark_set( INSERT,self.indexFromIdx( self.lastActivePos[hierarchyStage][parentIdx]['idx'] ))
+
+    def onKeyRight(self, event):
+        if self.activeIdx <= self.maxIdx():
+            record = self.record( self.activeIdx )
+            if not record.showSubrecords:
+                self.clearCache()
+                self.logText.configure( state='normal' )
+                record.showSubrecords = True
+                self.insertRecordsAt( self.getFilteredChildren( record.idx ),
+                                      self.logText.index( self.indexFromIdx( record.idx )  + " + 1 line" ), record )
+                self.logText.configure( state='disabled' )
+                self.clearCache()
+                # restore last active
+                self.logText.after_idle( self.restoreLastActivePos, record )
+
     def alterShowSubrecords(self, event):
         self.clearCache()
         textIndex = self.logText.index( self.logText.index(f"@{event.x},{event.y}") + " linestart" )
@@ -345,12 +402,12 @@ class HierarchicalLogText(RecordingHandler, Frame):
 
         showSubrecords = record.showSubrecords
         record.showSubrecords = not record.showSubrecords
-        self.logText.configure( state='normal' )
         if showSubrecords:
             self.removeSubrecords( record )
         else:
+            self.logText.configure( state='normal' )
             self.insertRecordsAt( self.getFilteredChildren( idx ), self.logText.index( textIndex  + " + 1 line" ), record )
-        self.logText.configure( state='disabled' )
+            self.logText.configure( state='disabled' )
         self.logText.update()
         self.clearCache()
 

@@ -77,7 +77,8 @@ class HLogRecord( logging.LogRecord ):
 
     def __init__(self):
         self.idx = -1
-        self.hierarchyStage = -1
+        self.hierarchyStage = -1 
+        """the lower the number is, the higher in hierarchy"""
         self.showSubrecords = None
         self.maxChildLevelNo = -1
 
