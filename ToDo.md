@@ -1,5 +1,4 @@
 1. Rework of relative/absolute idx concept (Model-View)
 2. Documentation enhancements
 3. Demo enhancements, Filtering, Multiline Entries
-4. RemoveSubrecords rework
-5. Test multiline records
+4. Test multiline records
