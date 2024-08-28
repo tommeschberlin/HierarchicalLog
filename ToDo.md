@@ -2,3 +2,4 @@
 2. Documentation enhancements
 3. Demo enhancements, Filtering, Multiline Entries
 4. RemoveSubrecords rework
+5. Test multiline records

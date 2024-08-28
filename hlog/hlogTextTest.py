@@ -93,7 +93,7 @@ class TestHlogText(unittest.TestCase):
             with EnterLowerLogHierarchyStage( "10", self.app.logger ) :
                 self.app.logger.debug("20")
             self.app.logger.warning("11")
-        self.app.logger.warning("01")
+        self.app.logger.error("01")
         
     def getPosAtParent(self, idx):
         parentIdx = self.hLogText.parentIdx( idx )
@@ -120,8 +120,8 @@ class TestHlogText(unittest.TestCase):
         if parent != None:
             if parent.showSubrecords == False or not self.hLogText.isShow( idx):
                 markTag = self.hLogText.markFromIdx( idx )
-                index = self.hLogText.indexFromMark( markTag )
-                self.assertEqual( index, None, "Idx %s: No marktags expected, if not shown" % idx)
+                begin,end = self.hLogText.rangeFromMark( markTag )
+                self.assertEqual( begin, None, "Idx %s: No marktags expected, if not shown" % idx)
                 return
 
         # test idx
