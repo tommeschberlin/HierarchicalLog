@@ -221,8 +221,6 @@ class HierarchicalLogText(RecordingHandler, Frame):
         self.logText.tag_add( newLevelTagName, begin, newEnd )
 
     def setDefaultRecordTags( self, begin, end, record : HLogRecord):
-        # end = self.logText.index( begin + " lineend" )
-        # self.logText.tag_add( self.levelTagNames[ record.levelname ], begin, end )
         self.logText.tag_add( "STAGE%s" % record.hierarchyStage, begin, end )
         self.logText.tag_add( self.markFromIdx( record.idx ), begin, end )
 
@@ -267,7 +265,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
                 begin = self.logText.index( index + " + %s lines linestart" % cntInsertedLines )
                 cntInsertedLines += self.insertRecordsAt(self.getFilteredChildren( record.idx ), begin, record )
 
-        if parent != None and maxChildLevelNo > parent.maxChildLevelNo:
+        if parent != None and maxChildLevelNo > parent.levelno and maxChildLevelNo > parent.maxChildLevelNo:
             begin,end = self.rangeFromMark(self.markFromIdx(parent.idx))
             parent.maxChildLevelNo = maxChildLevelNo
             self.updateRecordLevelTag( begin, end, parent )
@@ -495,13 +493,17 @@ class HierarchicalLogText(RecordingHandler, Frame):
             prevLineIndex = self.logText.index( markIndex + " -1 line")
             prevIdx = self.idxFromMark( self.markFromIndex( prevLineIndex ) )
             self.alterActiveRecord( prevIdx )
+            begin,end = self.rangeFromMark( self.markFromIdx( prevIdx ) )
+            self.logText.mark_set(INSERT, begin)
 
     def onKeyDown(self, event):
         if self.activeIdx < self.maxIdx() and self.activeIdx >= 0:
-            markIndex = self.indexFromIdx( self.activeIdx )
-            nextLineIndex = self.logText.index( markIndex + " +1 line")
-            nextIdx = self.idxFromMark( self.markFromIndex( nextLineIndex ) )
+            begin,end = self.rangeFromMark( self.markFromIdx( self.activeIdx ) )
+            nextMarkIndex = self.logText.index( end + " +1 c")
+            nextIdx = self.idxFromMark( self.markFromIndex( nextMarkIndex ) )
             self.alterActiveRecord( nextIdx )
+            begin,end = self.rangeFromMark( self.markFromIdx( nextIdx ) )
+            self.logText.mark_set(INSERT, end)
 
     def alterActiveRecord( self, idx ):
         currentActiveIdx = self.activeIdx
