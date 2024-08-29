@@ -311,6 +311,34 @@ class TestHlogText(unittest.TestCase):
         
         self.hLogText.alterActiveRecord( 0 )
 
+    def test_customLogLevel( self ):
+        logLevelNewId = logging.INFO + 1
+        logLevelNewName = "NEW"
+
+        self.hLogText.addCustomLevel( logLevelNewId, logLevelNewName, foreground="white", background="red" )
+
+        self.app.logger.log( logLevelNewId, "02")
+        newLevelRecordIdx = self.hLogText.maxIdx()
+        self.checkAllEntries()
+
+        lowerHierarchyStage = LowerLogHierarchyStage( self.app.logger )
+        self.app.logger.info('10')
+        self.checkAllEntries()
+
+        tagLevelName = self.hLogText.levelTagNameFromIndex( self.hLogText.indexFromIdx( newLevelRecordIdx ) )
+        self.assert_equal( tagLevelName, self.hLogText.levelTagNames[logLevelNewName],
+                           "TagLevelname %s expected, found %s" % (self.hLogText.levelTagNames[logLevelNewName],tagLevelName) )
+
+        range = self.hLogText.rangeFromMark( self.hLogText.markFromIdx( newLevelRecordIdx ) )
+        objRanges = self.hLogText.logText.tag_ranges( self.hLogText.levelTagNames[logLevelNewName] )
+        ranges = ()
+        for e in objRanges:
+            ranges = ranges + (str(e),)
+        self.assert_equal( range, ranges, "Ranges for new tag and for last entry should match")
+
+
+
+
     def test_markFromIndex( self ):
         pass
 

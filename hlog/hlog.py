@@ -116,14 +116,18 @@ class RecordingHandler( logging.Handler ):
         self.maxCntRecords = maxCntRecords
         self.records = deque( maxlen=self.maxCntRecords )  # type: deque[HLogRecord]
         self.entireAdded = 0
+        self.levelNamesFilter : dict[str,bool] = {}
 
-        self.levelNamesFilter = {
-            "ERROR"    : True,
-            "CRITICAL" : True, # never filter out this
-            "INFO"     : True,
-            "DEBUG"    : True,
-            "WARNING"  : True,
-        }
+        # initializes filter for levelname
+        for name,id in logging.getLevelNamesMapping().items():
+            self.levelNamesFilter[name] = True
+
+    def addCustomLevel(self, levelId, levelName):
+        """
+        Creates a new level with id and name
+        """
+        logging.addLevelName(levelId, levelName)
+        self.levelNamesFilter[levelName] = True
 
     def emit(self, record : HLogRecord )->None:
         """

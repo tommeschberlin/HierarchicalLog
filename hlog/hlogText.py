@@ -62,13 +62,11 @@ class HierarchicalLogText(RecordingHandler, Frame):
             highlightFont = font.Font(family = highlightFont)
         highlightFont.configure(weight = 'bold')
 
-        self.levelTagNames = {
-            "ERROR"    : "LevelERROR",
-            "CRITICAL" : "LevelCRITICAL",
-            "INFO"     : "LevelINFO",
-            "DEBUG"    : "LevelDEBUG",
-            "WARNING"  : "LevelWARNING",
-        }
+        # tagnames for levelnames
+        self.levelTagNames : dict[str,str] = {}
+        for levelName in logging.getLevelNamesMapping().keys():
+            self.levelTagNames[levelName] = "Level" + levelName
+
         self.levelTagActiveSuffix = "_ACTIVE"
 
         self.logText.tag_config(self.levelTagNames["ERROR"], foreground="red" )
@@ -77,12 +75,12 @@ class HierarchicalLogText(RecordingHandler, Frame):
         self.logText.tag_config(self.levelTagNames["DEBUG"], foreground="darkgrey" )
         self.logText.tag_config(self.levelTagNames["WARNING"], foreground="orange" )
 
-        activeBackground = 'darkgray'
-        self.logText.tag_config(self.levelTagNames["ERROR"] + self.levelTagActiveSuffix , foreground="red", background=activeBackground )
+        self.activeBackground = 'darkgray'
+        self.logText.tag_config(self.levelTagNames["ERROR"] + self.levelTagActiveSuffix , foreground="red", background=self.activeBackground )
         self.logText.tag_config(self.levelTagNames["CRITICAL"] + self.levelTagActiveSuffix, foreground="white", background="darkred", font=highlightFont )
-        self.logText.tag_config(self.levelTagNames["INFO"] + self.levelTagActiveSuffix, foreground="black", background=activeBackground )
-        self.logText.tag_config(self.levelTagNames["DEBUG"] + self.levelTagActiveSuffix, foreground="white", background=activeBackground )
-        self.logText.tag_config(self.levelTagNames["WARNING"] + self.levelTagActiveSuffix, foreground="orange", background=activeBackground )
+        self.logText.tag_config(self.levelTagNames["INFO"] + self.levelTagActiveSuffix, foreground="black", background=self.activeBackground )
+        self.logText.tag_config(self.levelTagNames["DEBUG"] + self.levelTagActiveSuffix, foreground="white", background=self.activeBackground )
+        self.logText.tag_config(self.levelTagNames["WARNING"] + self.levelTagActiveSuffix, foreground="orange", background=self.activeBackground )
 
         for stage in range(0,10):
             self.logText.tag_config("STAGE%s" % stage, lmargin1=[stage * 15])
@@ -114,6 +112,15 @@ class HierarchicalLogText(RecordingHandler, Frame):
         super().destroy()
         self.label = None
         self.scale = None
+
+    def addCustomLevel(self, levelId, levelName, tagConfig = None, tagActiveConfig = None):
+        super().addCustomLevel(levelId, levelName)
+        self.levelTagNames[levelName] = "Level" + levelName
+        if tagConfig is not None:
+            self.logText.tag_config(self.levelTagNames[levelName], tagConfig)
+            if tagActiveConfig is None:
+                tagActiveConfig = tagConfig
+            self.logText.tag_config(self.levelTagNames[levelName] + self.levelTagActiveSuffix, tagActiveConfig)
 
     def showAlterShowSubrecordsCursor( self, event ):
         self.logText.config(cursor="hand2")
