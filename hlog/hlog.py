@@ -167,13 +167,13 @@ class RecordingHandler( logging.Handler ):
     
     def record( self, idx )->HLogRecord:
         """Retrieves a record by its idx, asserts if not found"""
-        relIdx = idx - self.minIdx()
+        relIdx = min( idx, idx - (self.entireAdded - self.maxCntRecords) )
         assert relIdx >= 0 and relIdx < self.maxCntRecords
         return self.records[ relIdx ]
     
     def idxToRelIdx( self, idx: int )->int:
         """Calculates the relative idx from absolute idx"""
-        return idx - self.minIdx()
+        return min( idx, idx - (self.entireAdded - self.maxCntRecords) )
 
     def passedFilter( self, record : HLogRecord ):
         """Filters by levelname """
