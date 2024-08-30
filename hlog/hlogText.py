@@ -101,6 +101,8 @@ class HierarchicalLogText(RecordingHandler, Frame):
         self.logText.tag_bind(self.AlterShowSubrecordsTag, '<Leave>', self.hideAlterShowSubrecordsCursor )
         self.logText.tag_bind(self.AlterShowSubrecordsTag, '<Button-1>', self.alterShowSubrecords )
 
+        self.mouseLeftWasProcessedByAlterShowSubrecords = False
+
         # some chaching
         self.lastHandledRecordHierarchyStage = -1
         self.lastHandledParentIdx = -1
@@ -342,10 +344,10 @@ class HierarchicalLogText(RecordingHandler, Frame):
     def onMouseLeft(self, event):
         mouseIndex = self.logText.index( self.logText.index(f"@{event.x},{event.y}") )
         textIndex = self.logText.index( mouseIndex + " linestart")
-        # if over +/- button no de/activation 
-        if self.AlterShowSubrecordsTag in self.logText.tag_names( mouseIndex ):
-            return
-        
+        # if +/- button was pressed
+        if self.mouseLeftWasProcessedByAlterShowSubrecords:
+            self.mouseLeftWasProcessedByAlterShowSubrecords = False
+            return 
         mark = self.markFromIndex( textIndex )
         if mark is not None:
             self.alterActiveRecord( self.idxFromMark( mark ) )
@@ -410,6 +412,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
                 self.logText.after_idle( self.restoreLastActivePos, record )
 
     def alterShowSubrecords(self, event):
+        self.mouseLeftWasProcessedByAlterShowSubrecords = True
         self.clearCache()
         textIndex = self.logText.index( self.logText.index(f"@{event.x},{event.y}") + " linestart" )
         mark = self.markFromIndex( textIndex )
