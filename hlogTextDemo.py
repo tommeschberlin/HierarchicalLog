@@ -33,7 +33,7 @@ class App(tkinter.Frame):
 
     def destroy(self):
         self.logger.removeHandler( self.hLogText )
-        resetLogHierarchy()
+        resetLogHierarchy(self.logger)
         super().destroy()
 
     def start(self):

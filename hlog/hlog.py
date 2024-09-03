@@ -3,6 +3,7 @@ from collections import deque
 import logging
 
 formerLogFactory = None
+initializedLoggers : set[str] = set()
 
 def initLogHierarchy(logger: logging.Logger = logging.getLogger()):
     """
@@ -14,29 +15,36 @@ def initLogHierarchy(logger: logging.Logger = logging.getLogger()):
     """
     global formerLogFactory
     
-    assert formerLogFactory == None
+    assert not logger.name in initializedLoggers
 
     logger.hierarchyStage = 0
+    initializedLoggers.add( logger.name )
 
     if not formerLogFactory:
         formerLogFactory = logging.getLogRecordFactory()
 
         def logFactory(*args, **kwargs):
             logger = logging.getLogger( args[0] )
-            record = formerLogFactory(*args, **kwargs)
+            record : HLogRecord = formerLogFactory(*args, **kwargs)
             record.hierarchyStage = __getHierarchyStage(logger)
             return record
 
         logging.setLogRecordFactory(logFactory)
 
-def resetLogHierarchy():
+def resetLogHierarchy(logger: logging.Logger = logging.getLogger()):
     """
     Removes the log hierarchy functionality from logging
     """
     global formerLogFactory
-    if formerLogFactory:
+    global initializedLoggers
+
+    assert logger.name in initializedLoggers
+
+    initializedLoggers.remove( logger.name )
+
+    if not len(initializedLoggers):
         logging.setLogRecordFactory(formerLogFactory)
-    formerLogFactory = None
+        formerLogFactory = None
 
 def __getHierarchyStage(logger):
     try:
@@ -241,3 +249,24 @@ class RecordingHandler( logging.Handler ):
         if parentIdx != None:
             return self.record( parentIdx )
         return None
+
+
+class HierarchicalLogFormatter(logging.Formatter):
+    """Logging file formatter for hierarchical log to files or console"""
+
+    characterSubrecordMiddle = '├'
+    characterSubrecordEnd    = '└'
+    maxHierarchy = 6
+
+    def __init__(self, fmt):
+        super().__init__(fmt)
+
+    def format(self, record : HLogRecord):
+        cntSpacesBefore = record.hierarchyStage
+        cntSpacesAfter = max(0, HierarchicalLogFormatter.maxHierarchy - cntSpacesBefore - 1)
+
+        spaceBefore = " "*cntSpacesBefore
+        spaceAfter = " "*cntSpacesAfter
+        preText = spaceBefore + HierarchicalLogFormatter.characterSubrecordMiddle + spaceAfter
+
+        return preText + super().format(record)

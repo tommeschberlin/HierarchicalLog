@@ -30,7 +30,7 @@ class App(tkinter.Frame):
 
     def destroy(self):
         self.logger.removeHandler( self.hLogText )
-        resetLogHierarchy()
+        resetLogHierarchy(self.logger)
         super().destroy()
 
 class TestHlogText(unittest.TestCase):
@@ -312,12 +312,17 @@ class TestHlogText(unittest.TestCase):
         self.hLogText.alterActiveRecord( 0 )
 
     def test_customLogLevel( self ):
-        logLevelNewId = logging.INFO + 1
-        logLevelNewName = "NEW"
+        newLevelId = logging.INFO + 1
+        newLevelName = "NEW"
+        newLevelFont = self.hLogText.logText.cget("font")
+        if isinstance(newLevelFont, str):
+            newLevelFont = font.Font(family = newLevelFont)
+        newLevelFont.configure(weight = 'bold')
 
-        self.hLogText.addCustomLevel( logLevelNewId, logLevelNewName, foreground="white", background="red" )
+        self.hLogText.addCustomLevel( newLevelId, newLevelName, { 'foreground':"white", 'background':"red",'font' : newLevelFont},
+                                     { 'foreground':"white", 'background':"red",'font' : newLevelFont}  )
 
-        self.app.logger.log( logLevelNewId, "02")
+        self.app.logger.log( newLevelId, "02")
         newLevelRecordIdx = self.hLogText.maxIdx()
         self.checkAllEntries()
 
@@ -326,11 +331,11 @@ class TestHlogText(unittest.TestCase):
         self.checkAllEntries()
 
         tagLevelName = self.hLogText.levelTagNameFromIndex( self.hLogText.indexFromIdx( newLevelRecordIdx ) )
-        self.assert_equal( tagLevelName, self.hLogText.levelTagNames[logLevelNewName],
-                           "TagLevelname %s expected, found %s" % (self.hLogText.levelTagNames[logLevelNewName],tagLevelName) )
+        self.assert_equal( tagLevelName, self.hLogText.levelTagNames[newLevelName],
+                           "TagLevelname %s expected, found %s" % (self.hLogText.levelTagNames[newLevelName],tagLevelName) )
 
         range = self.hLogText.rangeFromMark( self.hLogText.markFromIdx( newLevelRecordIdx ) )
-        objRanges = self.hLogText.logText.tag_ranges( self.hLogText.levelTagNames[logLevelNewName] )
+        objRanges = self.hLogText.logText.tag_ranges( self.hLogText.levelTagNames[newLevelName] )
         ranges = ()
         for e in objRanges:
             ranges = ranges + (str(e),)

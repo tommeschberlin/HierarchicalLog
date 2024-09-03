@@ -33,10 +33,10 @@ class TestHierarchicalLog(unittest.TestCase):
         self.fileHandler = None
         self.logger.removeHandler(self.recordingHandler)
         self.recordingHandler = None
-        resetLogHierarchy()
+        resetLogHierarchy(self.logger)
 
-    def logFileContent(self):
-        with open(self.logFile) as f:
+    def logFileContent(self, logFile):
+        with open(logFile) as f:
             return f.readlines()
 
     def fillLog(self):
@@ -52,7 +52,7 @@ class TestHierarchicalLog(unittest.TestCase):
         self.logger.info('Started')
         self.logger.info('Finished')
         self.fileHandler.close()
-        content = '\n'.join( self.logFileContent() )
+        content = '\n'.join( self.logFileContent( self.logFile ) )
         self.assertTrue( re.search("Started", content ), "Check Started" )
         self.assertTrue( re.search("Finished", content ), "Check Finished" )
 
@@ -71,6 +71,27 @@ class TestHierarchicalLog(unittest.TestCase):
         self.assertEqual( recordingHandler.at( 0 ), None, "Check Handler record 0 is None" )
         self.assertEqual( recordingHandler.at( 1 ).message, "1", "Check Handler record 1" )
         self.assertEqual( recordingHandler.at( 10 ).message, "10", "Check Handler record 10" )
+
+    # Test HierarchyFormatter
+    # @unittest.skip("skipped temporarily")
+    def test_HierarchyFormatter(self):
+        hierarchyLogFile = os.path.join( self.workDir, 'testHierarchyFormatter.log' )
+        if os.path.isfile(hierarchyLogFile):
+            os.remove(hierarchyLogFile)
+        logger = logging.getLogger('testHierarchyLogFile')
+        logger.setLevel(logging.DEBUG)
+        initLogHierarchy( logger )
+        fileHandler = logging.FileHandler(hierarchyLogFile, 'w', 'utf-8' )
+        logFormatter = HierarchicalLogFormatter(' %(asctime)s - %(name)s - %(levelname)8s - %(message)s')
+        fileHandler.setFormatter(logFormatter)
+        logger.addHandler(fileHandler)
+
+        with EnterLowerLogHierarchyStage("Function hier", logger):
+            for i in range(0,5):
+                logger.warning("00")
+
+        fileHandler.close()
+        content = self.logFileContent(hierarchyLogFile)
 
     # Test if, hierarchy stage can be set in python logging system
     # @unittest.skip("skipped temporarily")
