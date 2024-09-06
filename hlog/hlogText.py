@@ -8,9 +8,10 @@ from pathlib import Path
 import re
 
 SHOW_DETAILS_OFF = 0
-SHOW_DETAILS_AT_ENTRY_IF_ACTIVE = 1
-SHOW_DETAILS_AT_WIDGET_IF_ACTIVE = 2
-SHOW_DETAILS_AS_TOOLTIP = 3
+SHOW_DETAILS_AT_ENTRY = 1
+SHOW_DETAILS_AT_ENTRY_IF_ACTIVE = 2
+SHOW_DETAILS_AT_WIDGET_IF_ACTIVE = 3
+SHOW_DETAILS_AS_TOOLTIP = 4
 
 class HierarchicalLogText(RecordingHandler, Frame):
     DefaultShowSubrecords = False
@@ -280,7 +281,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
 
             begin = self.logText.index( index + " + %s lines linestart" % cntInsertedLines )
 
-            cntInsertedLines += self.insertRecordAt( begin, record, False )
+            cntInsertedLines += self.insertRecordAt( begin, record, self.showDetails == SHOW_DETAILS_AT_ENTRY )
 
             # insert children
             # only not last element can have children
