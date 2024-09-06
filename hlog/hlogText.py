@@ -7,6 +7,11 @@ import os
 from pathlib import Path
 import re
 
+SHOW_DETAILS_OFF = 0
+SHOW_DETAILS_AT_ENTRY_IF_ACTIVE = 1
+SHOW_DETAILS_AT_WIDGET_IF_ACTIVE = 2
+SHOW_DETAILS_AS_TOOLTIP = 3
+
 class HierarchicalLogText(RecordingHandler, Frame):
     DefaultShowSubrecords = False
 
@@ -109,6 +114,8 @@ class HierarchicalLogText(RecordingHandler, Frame):
         self.lastActivePos = dict()
 
         self.clearCache()
+
+        self.showDetails = SHOW_DETAILS_AT_ENTRY_IF_ACTIVE
 
     def destroy(self):
         super().destroy()
@@ -232,6 +239,23 @@ class HierarchicalLogText(RecordingHandler, Frame):
             return 0
         return cntLines[0]
 
+    def insertRecordAt( self, begin, record : HLogRecord, showDetails : bool = False ) -> int:
+        self.logText.mark_set( INSERT, begin )
+        msg = record.msg
+        if '\n' in msg:
+            parts = msg.split('\n')
+            msg = parts[0]
+            if showDetails:
+                for i in range(1,len(parts)):
+                    msg += '\n' + parts[i]
+
+        self.logText.insert( begin, msg + '\n', )
+        end = self.logText.index(INSERT + " - 1c")
+        self.setDefaultRecordTags( begin, end, record )
+        self.updateRecordLevelTag( begin, end, record )
+        cntInsertedLines = ( self.countLines( begin, end ) + 1 )
+        return cntInsertedLines
+
     # inserts a group of records at index 
     def insertRecordsAt(self, indicees, index, parent : HLogRecord = None):
         cntInsertedLines = 0
@@ -255,13 +279,10 @@ class HierarchicalLogText(RecordingHandler, Frame):
             #  assert self.logText.tag_names().count( self.markFromIdx( record.idx) ) == 0 
 
             begin = self.logText.index( index + " + %s lines linestart" % cntInsertedLines )
-            self.logText.mark_set( INSERT, begin )
-            self.logText.insert( begin, record.msg + '\n', )
-            end = self.logText.index(INSERT + " - 1c")
-            self.setDefaultRecordTags( begin, end, record )
-            self.updateRecordLevelTag( begin, end, record )
-            cntInsertedLines += ( self.countLines( begin, end ) + 1 )
 
+            cntInsertedLines += self.insertRecordAt( begin, record, False )
+
+            # insert children
             # only not last element can have children
             if record.idx < self.maxIdx():
                 begin = self.logText.index( index + " + %s lines linestart" % cntInsertedLines )
@@ -433,6 +454,10 @@ class HierarchicalLogText(RecordingHandler, Frame):
         self.logText.update()
         self.clearCache()
 
+    def removeRecordAt( self, idx : int ):
+        recordBegin,recordEnd = self.rangeFromMark( self.markFromIdx( idx ) )
+        self.logText.delete( recordBegin, recordEnd + " +1c")
+
     def removeRecords( self, indicees, parentIdx ):
         groupBegin = ''
         groupEnd = ''
@@ -503,50 +528,39 @@ class HierarchicalLogText(RecordingHandler, Frame):
         if self.activeIdx < self.maxIdx() and self.activeIdx >= 0:
             begin,end = self.rangeFromMark( self.markFromIdx( self.activeIdx ) )
             nextMarkIndex = self.logText.index( end + " +1 c")
-            nextIdx = self.idxFromMark( self.markFromIndex( nextMarkIndex ) )
-            self.alterActiveRecord( nextIdx )
-            begin,end = self.rangeFromMark( self.markFromIdx( nextIdx ) )
-            self.logText.mark_set(INSERT, end)
+            mark = self.markFromIndex( nextMarkIndex )
+            if mark is not None:
+                nextIdx = self.idxFromMark( mark )
+                self.alterActiveRecord( nextIdx )
+                begin,end = self.rangeFromMark( self.markFromIdx( nextIdx ) )
+                self.logText.mark_set(INSERT, end)
 
     def alterActiveRecord( self, idx ):
         currentActiveIdx = self.activeIdx
         if currentActiveIdx <= self.maxIdx():
             self.activeIdx = self.maxCntRecords
             begin,end = self.rangeFromMark(self.markFromIdx(currentActiveIdx))
-            self.updateRecordLevelTag( begin, end, self.record(currentActiveIdx) )
+            if self.showDetails == SHOW_DETAILS_AT_ENTRY_IF_ACTIVE:
+                self.logText.configure( state='normal' )
+                self.removeRecordAt( currentActiveIdx )
+                self.insertRecordAt( begin, self.record(currentActiveIdx), False )
+                self.logText.configure( state='disabled' )
+            else:
+                self.updateRecordLevelTag( begin, end, self.record(currentActiveIdx) )
+                
         if idx == currentActiveIdx:
             """ only deactivated the current active one"""
             return
 
         self.activeIdx = idx
         begin,end = self.rangeFromMark(self.markFromIdx( idx ) )
-        self.updateRecordLevelTag( begin, end, self.record( idx ) )
+        if self.showDetails == SHOW_DETAILS_AT_ENTRY_IF_ACTIVE:
+            self.logText.configure( state='normal' )
+            self.removeRecordAt( idx )
+            self.insertRecordAt( begin, self.record(idx), True )
+            self.logText.configure( state='disabled' )
+        else:
+            self.updateRecordLevelTag( begin, end, self.record( idx ) )
         
     def showEnd(self):
         self.activeIdx = self.maxCntRecords
-
-    @property
-    def value(self):
-        """Return current scale value."""
-        return self._variable.get()
-
-    @value.setter
-    def value(self, val):
-        """Set new scale value."""
-        self._variable.set(val)
-       
-    def updateView(self):
-        #activeIdx = self.activeIdx()
-        # firstVisibleIdx =
-        # l 
-        #view = self.logText.yview()
-
-        #begin = self.logText.index(INSERT)
-        #self.logText.configure( state='normal' )
-        #self.logText.insert( 'end', record.msg + '\n' )
-        #if ( view[1] == 1.0 ):
-        #    self.logText.see( 'end' )
-        #end = self.logText.index(INSERT)
-        #self.logText.tag_add(record.levelname, begin, end )
-        #self.logText.configure( state='disabled' )
-        pass
