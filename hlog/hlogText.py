@@ -545,6 +545,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
                 self.logText.configure( state='normal' )
                 self.removeRecordAt( currentActiveIdx )
                 self.insertRecordAt( begin, self.record(currentActiveIdx), False )
+                self.updateParent( self.record(currentActiveIdx) )
                 self.logText.configure( state='disabled' )
             else:
                 self.updateRecordLevelTag( begin, end, self.record(currentActiveIdx) )
@@ -559,6 +560,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
             self.logText.configure( state='normal' )
             self.removeRecordAt( idx )
             self.insertRecordAt( begin, self.record(idx), True )
+            self.updateParent( self.record(idx) )
             self.logText.configure( state='disabled' )
         else:
             self.updateRecordLevelTag( begin, end, self.record( idx ) )
