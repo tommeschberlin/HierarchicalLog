@@ -41,7 +41,6 @@ class TestHlogText(unittest.TestCase):
         self.app = App( Root )
         self.app.pack(fill=BOTH, expand=True)
         Root.update()
-        Root.iconify()
         self.hLogText = self.app.hLogText
         self.fillLog()
 
@@ -201,10 +200,8 @@ class TestHlogText(unittest.TestCase):
 
     def getEventForIdx( self, idx ):
         index = self.hLogText.indexFromIdx( idx )
-        Root.deiconify()
         Root.update()
         bbox = self.hLogText.logText.bbox( index )
-        Root.iconify()
         event = Event()
         Root.update()
         event.x = bbox[0]
@@ -342,7 +339,20 @@ class TestHlogText(unittest.TestCase):
         self.assert_equal( range, ranges, "Ranges for new tag and for last entry should match")
 
 
-
+    # Test 
+    # @unittest.skip("skipped temporarily")
+    def test_activateSecondRecord( self ):
+        Root.update_idletasks()
+        indexEnd0 = self.hLogText.indexFromIdx( self.hLogText.maxIdx())
+        self.hLogText.alterActiveRecord( 1 )
+        Root.update_idletasks()
+        indexEnd1 = self.hLogText.indexFromIdx( self.hLogText.maxIdx())
+        self.assertEqual( indexEnd0, indexEnd1 )        
+        self.hLogText.alterShowSubrecords( self.getEventForIdx( 0 ) )
+        Root.update_idletasks()
+        self.assertFalse( self.hLogText.isShow(1) )
+        indexEnd2 = self.hLogText.indexFromIdx( self.hLogText.maxIdx())
+        self.assertEqual( indexEnd2, "2.0")
 
     def test_markFromIndex( self ):
         pass
@@ -354,6 +364,8 @@ class TestHlogText(unittest.TestCase):
 Root = Tk()
 Root.resizable(True,True)
 Root.wm_attributes("-topmost", 1)
+Root.geometry("-3100+0")
+Root.winfo_screen
 
 if __name__ == '__main__':
     unittest.main(failfast=True)

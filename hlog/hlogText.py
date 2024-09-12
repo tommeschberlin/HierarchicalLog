@@ -116,6 +116,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
 
         self.clearCache()
 
+        self.cntEnableRequests = 0
         self.showDetails = SHOW_DETAILS_AT_ENTRY_IF_ACTIVE
 
     def destroy(self):
@@ -315,16 +316,16 @@ class HierarchicalLogText(RecordingHandler, Frame):
             isShow = parent.showSubrecords and parentIsShow
             if not isShow and parentIsShow:
                 if parent.idx != self.lastHandledParentIdx:
-                    self.logText.configure( state='normal' )
+                    self.enableEdit()
                     self.updateParent( parent )
-                    self.logText.configure( state='disabled' )
+                    self.disableEdit()
 
         if isShow:
-            self.logText.configure( state='normal' )
+            self.enableEdit()
             self.insertRecordsAt([ record.idx ], self.logText.index(END + " -1c"), parent)
             if self.activeIdx > record.idx:
                 self.logText.see(END)
-            self.logText.configure( state='disabled' )
+            self.disableEdit()
 
         if isShow:
             self.lastHandledRecordHierarchyStage = record.hierarchyStage
@@ -385,6 +386,16 @@ class HierarchicalLogText(RecordingHandler, Frame):
         self.lastActivePos[recordToRestore.hierarchyStage][self.parentIdx( recordToRestore.idx )] =\
             { 'idx': recordToRestore.idx, 'upperViewIndex': upperViewIndex }
 
+    def disableEdit( self ):
+        self.cntEnableRequests -= 1
+        if self.cntEnableRequests == 0:
+            self.logText.configure( state='disabled' )
+
+    def enableEdit( self ):
+        if self.cntEnableRequests == 0:
+            self.logText.configure( state='normal' )
+        self.cntEnableRequests += 1
+
     def onKeyLeft(self, event):
         if self.activeIdx <= self.maxIdx():
             record = self.record( self.activeIdx )
@@ -402,9 +413,9 @@ class HierarchicalLogText(RecordingHandler, Frame):
                 self.storeLastActivePos( recordToRestore ) 
                 self.clearCache()
                 record.showSubrecords = False
-                self.logText.configure( state='normal' )
+                self.enableEdit()
                 self.removeRecords( self.getVisibleChildren( record.idx ), record.idx )
-                self.logText.configure( state='disabled' )
+                self.disableEdit()
                 self.clearCache()
                 if self.activeIdx != record.idx:
                     self.alterActiveRecord(record.idx)
@@ -424,11 +435,11 @@ class HierarchicalLogText(RecordingHandler, Frame):
             record = self.record( self.activeIdx )
             if not record.showSubrecords:
                 self.clearCache()
-                self.logText.configure( state='normal' )
+                self.enableEdit()
                 record.showSubrecords = True
                 self.insertRecordsAt( self.getFilteredChildren( record.idx ),
                                       self.logText.index( self.indexFromIdx( record.idx )  + " + 1 line" ), record )
-                self.logText.configure( state='disabled' )
+                self.disableEdit()
                 self.clearCache()
                 # restore last active
                 self.logText.after_idle( self.restoreLastActivePos, record )
@@ -443,15 +454,16 @@ class HierarchicalLogText(RecordingHandler, Frame):
 
         showSubrecords = record.showSubrecords
         record.showSubrecords = not record.showSubrecords
+        self.clearCache()
         if showSubrecords:
-            self.logText.configure( state='normal' )
+            self.enableEdit()
             self.removeRecords( self.getVisibleChildren( record.idx ), record.idx )
-            self.logText.configure( state='disabled' )
+            self.disableEdit()
         else:
             begin,end = self.rangeFromMark( mark )
-            self.logText.configure( state='normal' )
+            self.enableEdit()
             self.insertRecordsAt( self.getFilteredChildren( idx ), self.logText.index( end  + "linestart + 1 line" ), record )
-            self.logText.configure( state='disabled' )
+            self.disableEdit()
         self.logText.update()
         self.clearCache()
 
@@ -489,7 +501,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
         if groupBegin:
             self.logText.delete( groupBegin, groupEnd )
 
-    def getVisibleChildren( self, idx = None ):
+    def getVisibleChildren( self, idx = None ) -> list[int]:
         if idx != None:
             relIdx = min( idx, idx - (self.entireAdded - self.maxCntRecords) )
             record = self.records[ relIdx ]
@@ -542,11 +554,11 @@ class HierarchicalLogText(RecordingHandler, Frame):
             self.activeIdx = self.maxCntRecords
             begin,end = self.rangeFromMark(self.markFromIdx(currentActiveIdx))
             if self.showDetails == SHOW_DETAILS_AT_ENTRY_IF_ACTIVE:
-                self.logText.configure( state='normal' )
+                self.enableEdit()
                 self.removeRecordAt( currentActiveIdx )
                 self.insertRecordAt( begin, self.record(currentActiveIdx), False )
                 self.updateParent( self.record(currentActiveIdx) )
-                self.logText.configure( state='disabled' )
+                self.disableEdit()
             else:
                 self.updateRecordLevelTag( begin, end, self.record(currentActiveIdx) )
                 
@@ -557,11 +569,11 @@ class HierarchicalLogText(RecordingHandler, Frame):
         self.activeIdx = idx
         begin,end = self.rangeFromMark(self.markFromIdx( idx ) )
         if self.showDetails == SHOW_DETAILS_AT_ENTRY_IF_ACTIVE:
-            self.logText.configure( state='normal' )
+            self.enableEdit()
             self.removeRecordAt( idx )
             self.insertRecordAt( begin, self.record(idx), True )
             self.updateParent( self.record(idx) )
-            self.logText.configure( state='disabled' )
+            self.disableEdit()
         else:
             self.updateRecordLevelTag( begin, end, self.record( idx ) )
         
@@ -573,6 +585,6 @@ class HierarchicalLogText(RecordingHandler, Frame):
         self.activeIdx = self.maxCntRecords
         self.lastActivePos.clear()
         self.clearCache()
-        self.logText.configure( state='normal' )
+        self.enableEdit()
         self.logText.delete( '1.0', END)
-        self.logText.configure( state='disabled' )
+        self.disableEdit()
