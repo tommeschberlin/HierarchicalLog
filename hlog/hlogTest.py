@@ -82,16 +82,37 @@ class TestHierarchicalLog(unittest.TestCase):
         logger.setLevel(logging.DEBUG)
         initLogHierarchy( logger )
         fileHandler = logging.FileHandler(hierarchyLogFile, 'w', 'utf-8' )
-        logFormatter = HierarchicalLogFormatter(' %(asctime)s - %(name)s - %(levelname)8s - %(message)s')
+        logFormatter = HLogFormatter('%(asctime)s - %(levelname)8s - %(message)s', '%y-%m-%d %H:%M:%S')
         fileHandler.setFormatter(logFormatter)
         logger.addHandler(fileHandler)
 
-        with EnterLowerLogHierarchyStage("Function hier", logger):
-            for i in range(0,5):
-                logger.warning("00")
+        with EnterLowerLogHierarchyStage("00", logger):
+            for i in range(1,5):
+                logger.warning(f"0{i}")
+
+        logger.info(f"10\n   Next Line")
 
         fileHandler.close()
         content = self.logFileContent(hierarchyLogFile)
+
+        dateTimeMatch = "[0-9]{2}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}"
+        branchMatch = lambda hLevel : "%s%s%s" % (" "*hLevel, "\\|\\-", " "*(HLogFormatter.maxHierarchy-hLevel))
+        
+        match = "^%s %s -     INFO - 00\n$" % (branchMatch(0), dateTimeMatch)
+        res = re.fullmatch(match, content[0])
+        self.assertIsNotNone(res)
+
+        for i in range(1,5):
+            match = "^%s %s -  WARNING - 0%s\n$" % (branchMatch(1), dateTimeMatch, i)
+            res = re.fullmatch(match, content[i])
+            self.assertIsNotNone(res)
+
+
+        logFileReader : HLogFileReader = HLogFileReader( logger, logFormatter._fmt )
+        logFileReader.read( hierarchyLogFile )
+
+
+
 
     # Test if, hierarchy stage can be set in python logging system
     # @unittest.skip("skipped temporarily")
