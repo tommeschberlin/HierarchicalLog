@@ -567,3 +567,12 @@ class HierarchicalLogText(RecordingHandler, Frame):
         
     def showEnd(self):
         self.activeIdx = self.maxCntRecords
+
+    def clear(self):
+        super().clear()
+        self.activeIdx = self.maxCntRecords
+        self.lastActivePos.clear()
+        self.clearCache()
+        self.logText.configure( state='normal' )
+        self.logText.delete( '1.0', END)
+        self.logText.configure( state='disabled' )

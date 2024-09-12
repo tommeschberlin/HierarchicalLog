@@ -1,7 +1,4 @@
-import unittest
 import tkinter
-import sys
-import time
 from tkinter import *
 from tkinter.ttk import *
 from hlog import *

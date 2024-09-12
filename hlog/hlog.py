@@ -4,6 +4,7 @@ import logging
 import re
 from datetime import datetime
 import copy
+import time
 
 formerLogFactory = None
 initializedLoggers : set[str] = set()
@@ -252,6 +253,10 @@ class RecordingHandler( logging.Handler ):
         if parentIdx != None:
             return self.record( parentIdx )
         return None
+    
+    def clear(self):
+        self.entireAdded = 0
+        self.records.clear()
 
 class HLogIO():
     branchMarker = '|-'
@@ -353,14 +358,15 @@ class HLogFileReader(HLogIO):
             for i in range(1, len(self.ascTimeExample)):
                 ascTime += next(iter)
 
-            self.dateTime = datetime.strptime( ascTime, self.dateFormat )
+            self.dateTime = time.strptime( ascTime, self.dateFormat )
+            self.time = time.mktime(self.dateTime)
             if self.dateTime is None:
                return False, c, iter
             
             return self.readTail( next(iter), iter )
 
         def value(self):
-            return self.dateTime
+            return self.time
 
 
     class levelnameParser(parser):
@@ -418,6 +424,7 @@ class HLogFileReader(HLogIO):
         fmt = f"%(hierarchy){hierarchyLen}s " + fmt
 
         self.logger = logger
+        assert logger.name in initializedLoggers, f"Logger {logger.name} must be initialized for hierarchy logging, with hlog.initLogHierarchy!"
 
         self.lineParsers : list[HLogFileReader.parser] = list()
         lineParsers = {}
@@ -432,6 +439,8 @@ class HLogFileReader(HLogIO):
         # sort by found pos
         lineParsers = dict( sorted(lineParsers.items()) )
         self.lineParsers = lineParsers.values()
+
+        self.lastReadEnd = 0
 
     def parseLine(self, line : str) -> dict[str,any]:
         recordEntry : dict[str,any] = dict()
@@ -454,10 +463,28 @@ class HLogFileReader(HLogIO):
         return recordEntry
 
     def makeRecord( self, recordEntry ):
-        pass
+        time = recordEntry[HLogFileReader.asctimeParser.__name__]
+        hierarchyStage = recordEntry[HLogFileReader.hierarchyParser.__name__]
+        levelName = recordEntry[HLogFileReader.levelnameParser.__name__]
+        msg = recordEntry[HLogFileReader.messageParser.__name__]
+        level = logging._nameToLevel[levelName]
+        self.logger.hierarchyStage = hierarchyStage
+        args = ''
+        fn, lno, func = self.filePath, 0, "(unknown function)"
+        record = self.logger.makeRecord(self.logger.name, level, fn, lno, msg, args,
+                                        None, func, None, None)
+        # replace time
+        record.created = time
+        record.msecs = int((time - int(time)) * 1000) + 0.0  # from LogRecord.__init__
 
-    def read(self, filePath : str ):
+        # handle standard
+        self.logger.handle( record )
+
+
+    def read(self, filePath : str, seekPos : int = 0 ) -> int:
+        self.filePath = filePath
         with open( filePath ) as f:
+            f.seek( seekPos )
             # because of possible pure message lines, we can only complete a record, if a valid next one was received
             lastRecordEntry : dict[str,any] = None 
             while True:
@@ -469,11 +496,21 @@ class HLogFileReader(HLogIO):
                 if HLogFileReader.hierarchyParser.__name__ in keys:
                     if lastRecordEntry is not None:
                         self.makeRecord( lastRecordEntry )
+                        self.lastReadEnd = f.tell()
                     lastRecordEntry = recordEntry
                 elif HLogFileReader.messageParser.__name__ in keys:
                     lastRecordEntry[HLogFileReader.messageParser.__name__] += '\n' + recordEntry[HLogFileReader.messageParser.__name__]
                 else:
-                    assert False, "No complete entry/message found"
+                    raise ImportError
 
             if lastRecordEntry is not None:
                 self.makeRecord( lastRecordEntry )
+                self.lastReadEnd = f.tell()
+
+        return self.lastReadEnd
+
+    
+    # see https://dev.to/stokry/monitor-files-for-changes-with-python-1npj
+    #from watchdog.observers import Observer
+    #from watchdog.
+    #def readFollow( self, filePath : str ):

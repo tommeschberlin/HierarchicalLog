@@ -72,48 +72,6 @@ class TestHierarchicalLog(unittest.TestCase):
         self.assertEqual( recordingHandler.at( 1 ).message, "1", "Check Handler record 1" )
         self.assertEqual( recordingHandler.at( 10 ).message, "10", "Check Handler record 10" )
 
-    # Test HierarchyFormatter
-    # @unittest.skip("skipped temporarily")
-    def test_HierarchyFormatter(self):
-        hierarchyLogFile = os.path.join( self.workDir, 'testHierarchyFormatter.log' )
-        if os.path.isfile(hierarchyLogFile):
-            os.remove(hierarchyLogFile)
-        logger = logging.getLogger('testHierarchyLogFile')
-        logger.setLevel(logging.DEBUG)
-        initLogHierarchy( logger )
-        fileHandler = logging.FileHandler(hierarchyLogFile, 'w', 'utf-8' )
-        logFormatter = HLogFormatter('%(asctime)s - %(levelname)8s - %(message)s', '%y-%m-%d %H:%M:%S')
-        fileHandler.setFormatter(logFormatter)
-        logger.addHandler(fileHandler)
-
-        with EnterLowerLogHierarchyStage("00", logger):
-            for i in range(1,5):
-                logger.warning(f"0{i}")
-
-        logger.info(f"10\n   Next Line")
-
-        fileHandler.close()
-        content = self.logFileContent(hierarchyLogFile)
-
-        dateTimeMatch = "[0-9]{2}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}"
-        branchMatch = lambda hLevel : "%s%s%s" % (" "*hLevel, "\\|\\-", " "*(HLogFormatter.maxHierarchy-hLevel))
-        
-        match = "^%s %s -     INFO - 00\n$" % (branchMatch(0), dateTimeMatch)
-        res = re.fullmatch(match, content[0])
-        self.assertIsNotNone(res)
-
-        for i in range(1,5):
-            match = "^%s %s -  WARNING - 0%s\n$" % (branchMatch(1), dateTimeMatch, i)
-            res = re.fullmatch(match, content[i])
-            self.assertIsNotNone(res)
-
-
-        logFileReader : HLogFileReader = HLogFileReader( logger, logFormatter._fmt )
-        logFileReader.read( hierarchyLogFile )
-
-
-
-
     # Test if, hierarchy stage can be set in python logging system
     # @unittest.skip("skipped temporarily")
     def test_EnterLowerLogHierarchyStage(self):
@@ -212,5 +170,64 @@ class TestHierarchicalLog(unittest.TestCase):
         self.assertEqual( self.recordingHandler.parentRecord( 3 ).message, "00" )
         self.assertEqual( self.recordingHandler.parentRecord( 4 ), None )
     
+
+    # Test HierarchyFormatter
+    # @unittest.skip("skipped temporarily")
+    def test_HLogIO(self):
+        hierarchyLogFile = os.path.join( self.workDir, 'testHierarchyIO.log' )
+        if os.path.isfile(hierarchyLogFile):
+            os.remove(hierarchyLogFile)
+        logger = logging.getLogger('testHierarchyIO')
+        logger.setLevel(logging.DEBUG)
+        initLogHierarchy( logger )
+        fileHandler = logging.FileHandler(hierarchyLogFile, 'w', 'utf-8' )
+        logFormatter = HLogFormatter('%(asctime)s - %(levelname)8s - %(message)s', '%y-%m-%d %H:%M:%S')
+        fileHandler.setFormatter(logFormatter)
+        logger.addHandler(fileHandler)
+        recordingHandler = RecordingHandler()
+        logger.addHandler(recordingHandler)
+
+        with EnterLowerLogHierarchyStage("00", logger):
+            for i in range(1,5):
+                logger.warning(f"0{i}")
+
+        logger.info(f"10\n   Next Line")
+
+        fileHandler.close()
+
+        # read already written logfile and check the textline
+        content = self.logFileContent(hierarchyLogFile)
+
+        dateTimeMatch = "[0-9]{2}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}"
+        branchMatch = lambda hLevel : "%s%s%s" % (" "*hLevel, "\\|\\-", " "*(HLogFormatter.maxHierarchy-hLevel))
+        
+        match = "^%s %s -     INFO - 00\n$" % (branchMatch(0), dateTimeMatch)
+        res = re.fullmatch(match, content[0])
+        self.assertIsNotNone(res)
+
+        for i in range(1,5):
+            match = "^%s %s -  WARNING - 0%s\n$" % (branchMatch(1), dateTimeMatch, i)
+            res = re.fullmatch(match, content[i])
+            self.assertIsNotNone(res)
+
+        # parse the already written logile and create a new log 
+        fileInputLogger = logging.getLogger('testHierarchyIO-FromFile')
+        initLogHierarchy( fileInputLogger )
+
+        fileInputRecordingHandler = RecordingHandler()
+        fileInputLogger.addHandler(fileInputRecordingHandler)
+        logFileReader : HLogFileReader = HLogFileReader( fileInputLogger, logFormatter._fmt )
+        logFileReader.read( hierarchyLogFile )
+
+        self.assertEqual( len(recordingHandler.records), len(fileInputRecordingHandler.records), "Created and read mustbe the same!" )
+
+        for i in range(0, len(recordingHandler.records)):
+            origRecord : HLogRecord = recordingHandler.records[i]
+            readRecord : HLogRecord = fileInputRecordingHandler.records[i]
+            self.assertEqual( int(origRecord.created), readRecord.created )
+            self.assertEqual( origRecord.levelno, readRecord.levelno)
+            self.assertEqual( origRecord.hierarchyStage, readRecord.hierarchyStage )
+            self.assertEqual( origRecord.msg, readRecord.msg )
+
 if __name__ == '__main__':
     unittest.main()
