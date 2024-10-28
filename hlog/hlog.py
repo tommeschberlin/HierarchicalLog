@@ -509,8 +509,4 @@ class HLogFileReader(HLogIO):
 
         return self.lastReadEnd
 
-    
-    # see https://dev.to/stokry/monitor-files-for-changes-with-python-1npj
-    #from watchdog.observers import Observer
-    #from watchdog.
-    #def readFollow( self, filePath : str ):
+   

@@ -2,7 +2,9 @@ import tkinter
 from tkinter import *
 from tkinter.filedialog import *
 from tkinter.ttk import *
-from hlog import *
+
+from hlog.hlog import *
+from hlog.hlogText import *
 
 # themes 'winnative', 'clam', 'alt', 'default', 'classic', 'vista', 'xpnative'
 # Theme = 'default'
@@ -46,6 +48,12 @@ class HlogFileReaderDemoApp(tkinter.Frame):
         filePath = tkinter.filedialog.askopenfilename(multiple = False, title = "Select LogFile to track ...")
         if filePath != '':
             self.logFileReader.read( filePath )
+
+    # see https://dev.to/stokry/monitor-files-for-changes-with-python-1npj
+    #from watchdog.observers import Observer
+    #from watchdog.
+    #def readFollow( self, filePath : str ):
+
 
 # create programm window and start mainloop
 Root = Tk()
