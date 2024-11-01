@@ -38,7 +38,7 @@ class App(tkinter.Frame):
         super().destroy()
 
     def start(self):
-        self.logger.info("info")
+        self.logger.info("info\nnew line\n   indented new line")
         self.logger.debug("debug")
         self.logger.warning("warning")
         self.logger.error("error")

@@ -114,8 +114,6 @@ class HierarchicalLogText(RecordingHandler, Frame):
 
     def destroy(self):
         super().destroy()
-        self.label = None
-        self.scale = None
 
     def addCustomLevel(self, levelId, levelName, tagConfig = None, tagActiveConfig = None):
         super().addCustomLevel(levelId, levelName)

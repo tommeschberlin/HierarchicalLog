@@ -25,13 +25,16 @@ class HLogTextTreeRecord(HLogRecord):
         self.itemId = ''
 
 class HierarchicalLogTextTree(RecordingHandler, Frame):
+    CntCreated : int = 0
     DefaultShowSubrecords = False
 
     def __init__(self, master=None, logger: logging.Logger = logging.getLogger(),
                  fmt: str = None, maxCntRecords: int =  100000, **kw):
         Frame.__init__(self, master, **kw)
         RecordingHandler.__init__(self, maxCntRecords = maxCntRecords )
+        HierarchicalLogTextTree.CntCreated += 1
 
+        self.name = kw.get( 'name', f"HierarchicalLogTextTree{HierarchicalLogTextTree.CntCreated}")
 
         self.activeIdx = maxCntRecords
 
@@ -42,7 +45,14 @@ class HierarchicalLogTextTree(RecordingHandler, Frame):
         self.scrollX = Scrollbar( self, orient='horizontal' )
         self.scrollY = Scrollbar( self, orient='vertical' )
 
-        self.logTextTree = ttk.Treeview( self, xscrollcommand=self.scrollX.set, yscrollcommand=self.scrollY.set, show="tree", selectmode="none" )
+
+        self.style = ttk.Style()
+        #style.theme_use("default")
+        #style.configure("Treeview",background="Black", foreground="White",fieldbackground="red")
+        #style.map('Treeview', background=[('selected','green')],foreground=[('selected','white')])
+
+        self.logTextTree = ttk.Treeview( self, xscrollcommand=self.scrollX.set, yscrollcommand=self.scrollY.set, show="tree headings", selectmode="browse",
+                                         columns=['Text','More', 'Time'], style=f"{self.name}.Treeview" )
 
         self.scrollX.configure( command=self.logTextTree.xview )
         self.scrollY.configure( command=self.logTextTree.yview )
@@ -83,16 +93,9 @@ class HierarchicalLogTextTree(RecordingHandler, Frame):
         self.bind('<Configure>', self.onConfigureOrMap)
         self.bind('<Map>', self.onConfigureOrMap)
 
-        self.logTextTree.bind('<Button-1>', self.onMouseLeft)
-        self.logTextTree.bind('<Double-Button-1>', self.onMouseLeftDouble)
+        # self.logTextTree.bind('<Button-1>', self.onMouseOver)
 
         self.logTextTree.bind('<<TreeviewSelect>>', self.onSelect)
-
-        self.AlterShowSubrecordsTag = "ALTER_SHOW_SUBRECORDS_TAG"
-        self.logTextTree.tag_bind(self.AlterShowSubrecordsTag, '<<Enter>>', self.showAlterShowSubrecordsCursor )
-        self.logTextTree.tag_bind(self.AlterShowSubrecordsTag, '<<Leave>>', self.hideAlterShowSubrecordsCursor )
-
-        self.mouseLeftWasProcessedByAlterShowSubrecords = False
 
         # some chaching
         self.lastHandledRecordHierarchyStage = -1
@@ -106,8 +109,6 @@ class HierarchicalLogTextTree(RecordingHandler, Frame):
 
     def destroy(self):
         super().destroy()
-        self.label = None
-        self.scale = None
 
     def addCustomLevel(self, levelId, levelName, tagConfig = None, tagActiveConfig = None):
         super().addCustomLevel(levelId, levelName)
@@ -118,22 +119,6 @@ class HierarchicalLogTextTree(RecordingHandler, Frame):
                 tagActiveConfig = tagConfig
             self.logTextTree.tag_configure(self.levelTagNames[levelName] + self.levelTagActiveSuffix, tagActiveConfig)
 
-    def showAlterShowSubrecordsCursor( self, event ):
-        self.logTextTree.config(cursor="hand2")
-
-    def hideAlterShowSubrecordsCursor( self, event ):
-        self.logTextTree.config(cursor="")
-        
-    def markFromIdx( self, idx ):
-        return "Record%s" % idx
-
-    def markFromIndex( self, index ):
-        tagNames = self.logTextTree.tag_names( self.logTextTree.index( index + " lineend - 1c" ) )
-        for tagName in tagNames:
-            if tagName.startswith("Record"):
-                return tagName
-        return None
-        
     def levelTagNameFromIdx( self, idx ):
         tagNames = self.logTextTree.item( idx, 'tags' )
         for tagName in tagNames:
@@ -141,19 +126,6 @@ class HierarchicalLogTextTree(RecordingHandler, Frame):
                 return tagName
         return None
     
-    def idxFromMark( self, mark ):
-        return int(mark.split("Record")[1])
-    
-    def indexFromIdx( self, idx ):
-        return str( self.logTextTree.tag_ranges( "Record%s" % idx )[0] )
-    
-    def idxFromIndex( self, index ):
-        tagNames = self.logTextTree.tag_names( self.logTextTree.index( index + " lineend - 1c" ) )
-        for tagName in tagNames:
-            if tagName.startswith("Record"):
-                return int( tagName[len("Record"):] )
-        return None
-
     def updateParent( self, parent : HLogTextTreeRecord ):
         # children?
         if self.cntFilteredChildren( parent.idx ) > 0:
@@ -178,18 +150,8 @@ class HierarchicalLogTextTree(RecordingHandler, Frame):
         if currentLevelTagName is not None:
             tags.remove(currentLevelTagName)
 
-        #if isActive:
-        #    newEnd = self.logTextTree.index( newEnd + " +1c" )
-
         tags.append( newLevelTagName )
-
         self.logTextTree.item( record.idx, tags=tags )
-
-    def countLines( self, index1, index2 ) -> int:
-        cntLines = self.logTextTree.count( index1, index2, 'lines')
-        if cntLines is None:
-            return 0
-        return cntLines[0]
 
     def insertRecordAt( self, parentId, indexAtParent, record : HLogTextTreeRecord, showDetails : bool = False ) -> int:
         msg = self.format( record )
@@ -200,7 +162,7 @@ class HierarchicalLogTextTree(RecordingHandler, Frame):
                 for i in range(1,len(parts)):
                     msg += '\n' + parts[i]
 
-        record.itemId = self.logTextTree.insert( parentId, indexAtParent, record.idx, text = msg + '\n' )
+        record.itemId = self.logTextTree.insert( parentId, indexAtParent, iid=record.idx, text = msg + '\n' )
         self.updateRecordLevelTag( record )
         return record.itemId
 
@@ -264,12 +226,9 @@ class HierarchicalLogTextTree(RecordingHandler, Frame):
             isShow = parent.showSubrecords and parentIsShow
             if not isShow and parentIsShow:
                 if parent.idx != self.lastHandledParentIdx:
-                    self.enableEdit()
                     self.updateParent( parent )
-                    self.disableEdit()
 
         if isShow:
-            self.enableEdit()
             parentItemId = ''
             if not parent is None:
                 parentItemId = parent.itemId
@@ -278,7 +237,6 @@ class HierarchicalLogTextTree(RecordingHandler, Frame):
             if self.activeIdx > record.idx:
                 children = self.logTextTree.get_children()
                 self.logTextTree.see( children[-1] )
-            self.disableEdit()
 
         if isShow:
             self.lastHandledRecordHierarchyStage = record.hierarchyStage
@@ -317,7 +275,7 @@ class HierarchicalLogTextTree(RecordingHandler, Frame):
 
         self.after_idle(adjust)
 
-    def onMouseLeft(self, event : ButtonPressEvent ):
+    def onMouseOver(self, event : ButtonPressEvent ):
         region = self.logTextTree.identify_region( event.x, event.y)
         if region != 'tree':
             return
@@ -328,74 +286,24 @@ class HierarchicalLogTextTree(RecordingHandler, Frame):
         self.lastHandledParentIdx = -1
         self.lastHandledRecordHierarchyStage = -1
 
-    def storeLastActivePos( self, recordToRestore : HLogRecord ):
-        upperViewIndex = self.logTextTree.index( self.logTextTree.index(f"@{0},{0}") )
-        if not recordToRestore.hierarchyStage in self.lastActivePos.keys():
-            self.lastActivePos[recordToRestore.hierarchyStage] = dict()
-        self.lastActivePos[recordToRestore.hierarchyStage][self.parentIdx( recordToRestore.idx )] =\
-            { 'idx': recordToRestore.idx, 'upperViewIndex': upperViewIndex }
-
-    def disableEdit( self ):
-        self.cntEnableRequests -= 1
-        if self.cntEnableRequests == 0:
-            #self.logTextTree.configure( state='disabled' )
-            pass
-
-    def enableEdit( self ):
-        if self.cntEnableRequests == 0:
-            #self.logTextTree.configure( state='normal' )
-            pass
-        self.cntEnableRequests += 1
-
-    def restoreLastActivePos(self, parentRecord : HLogRecord ):
-        """ Restores last active entry """
-        hierarchyStage = parentRecord.hierarchyStage + 1
-        parentIdx = parentRecord.idx
-        if hierarchyStage in self.lastActivePos.keys():
-            if parentIdx in self.lastActivePos[ hierarchyStage ]:
-                self.alterActiveRecord( self.lastActivePos[hierarchyStage][parentIdx]['idx'] )
-                self.logTextTree.yview( self.lastActivePos[hierarchyStage][parentIdx]['upperViewIndex'] )
-                self.logTextTree.mark_set( INSERT,self.indexFromIdx( self.lastActivePos[hierarchyStage][parentIdx]['idx'] ))
-
-    def getVisibleChildren( self, idx = None ) -> list[int]:
-        if idx != None:
-            relIdx = min( idx, idx - (self.entireAdded - self.maxCntRecords) )
-            record = self.records[ relIdx ]
-            parentHierarchyStage = record.hierarchyStage
-            childIndex = self.logTextTree.index( self.indexFromIdx( idx ) + "linestart +1 line" )
-        else:
-            parentHierarchyStage = -1
-            childIndex = "2.0"
-
-        children = []
-        childIdx = self.idxFromIndex( childIndex )
-        while childIdx != None:
-            child = self.records[ childIdx - self.minIdx() ]
-            if child.hierarchyStage <= parentHierarchyStage:
-                break
-            if (child.hierarchyStage == parentHierarchyStage + 1):
-                children.append( childIdx )
-            childIndex = self.logTextTree.index( childIndex + " +1 line")
-            childIdx = self.idxFromIndex( childIndex )
-        return children
-
-    def onMouseLeftDouble(self, event):
-        mouseIndex = self.logTextTree.index( self.logTextTree.index(f"@{event.x},{event.y}") )
-        if self.AlterShowSubrecordsTag in self.logTextTree.tag_names( mouseIndex ):
-            return
-        
     def onSelect( self, event ):
-        pass
+        selIdx = int(self.logTextTree.selection()[0])
+        self.alterActiveRecord( selIdx )
+
+        record = self.record( selIdx )
+        newLevelName = record.levelname
+        if record.maxChildLevelNo > 0:
+            newLevelName = logging.getLevelName( record.maxChildLevelNo )
+        tagConfig = self.logTextTree.tag_configure(self.levelTagNames[newLevelName] + self.levelTagActiveSuffix )
+        self.style.map(f"{self.name}.Treeview", background=[('selected',tagConfig['background'])],foreground=[('selected',tagConfig['foreground'])])
 
     def alterActiveRecord( self, idx : int ):
         currentActiveIdx = self.activeIdx
         if currentActiveIdx <= self.maxIdx():
             self.activeIdx = self.maxCntRecords
             if self.showDetails == SHOW_DETAILS_AT_ENTRY_IF_ACTIVE:
-                self.enableEdit()
                 # hide details
                 self.updateParent( self.record(currentActiveIdx) )
-                self.disableEdit()
                 self.updateRecordLevelTag( self.record(currentActiveIdx) )
                 
         if idx == currentActiveIdx:
@@ -404,23 +312,17 @@ class HierarchicalLogTextTree(RecordingHandler, Frame):
 
         self.activeIdx = idx
         if self.showDetails == SHOW_DETAILS_AT_ENTRY_IF_ACTIVE:
-            self.enableEdit()
+            record = self.record(idx)
             # show details
-            self.updateParent( self.record(idx) )
-            self.disableEdit()
-            self.updateRecordLevelTag( self.record( idx ) )
+            self.updateParent( record )
+            self.updateRecordLevelTag( record )
         
-    def seeEnd(self):
-        self.activeIdx = self.maxCntRecords
-
     def clear(self):
         super().clear()
         self.activeIdx = self.maxCntRecords
         self.lastActivePos.clear()
         self.clearCache()
-        self.enableEdit()
         self.logTextTree.delete( self.logTextTree.get_children() )
-        self.disableEdit()
 
     def parentRecord( self, idx )->HLogTextTreeRecord:
         return RecordingHandler.parentRecord( self, idx )
