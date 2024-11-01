@@ -61,13 +61,6 @@ class HierarchicalLogText(RecordingHandler, Frame):
         if not self.fmt:
             self.fmt = ""
 
-        # color tags
-        
-        highlightFont = self.logText.cget("font")
-        if isinstance(highlightFont, str):
-            highlightFont = font.Font(family = highlightFont)
-        highlightFont.configure(weight = 'bold')
-
         # tagnames for levelnames
         self.levelTagNames : dict[str,str] = {}
         for levelName in logging.getLevelNamesMapping().keys():
@@ -76,14 +69,14 @@ class HierarchicalLogText(RecordingHandler, Frame):
         self.levelTagActiveSuffix = "_ACTIVE"
 
         self.logText.tag_config(self.levelTagNames["ERROR"], foreground="red" )
-        self.logText.tag_config(self.levelTagNames["CRITICAL"], foreground="white", background="red", font=highlightFont )
+        self.logText.tag_config(self.levelTagNames["CRITICAL"], foreground="white", background="red" )
         self.logText.tag_config(self.levelTagNames["INFO"], foreground="black" )
         self.logText.tag_config(self.levelTagNames["DEBUG"], foreground="darkgrey" )
         self.logText.tag_config(self.levelTagNames["WARNING"], foreground="orange" )
 
         self.activeBackground = 'darkgray'
         self.logText.tag_config(self.levelTagNames["ERROR"] + self.levelTagActiveSuffix , foreground="red", background=self.activeBackground )
-        self.logText.tag_config(self.levelTagNames["CRITICAL"] + self.levelTagActiveSuffix, foreground="white", background="darkred", font=highlightFont )
+        self.logText.tag_config(self.levelTagNames["CRITICAL"] + self.levelTagActiveSuffix, foreground="white", background="darkred" )
         self.logText.tag_config(self.levelTagNames["INFO"] + self.levelTagActiveSuffix, foreground="black", background=self.activeBackground )
         self.logText.tag_config(self.levelTagNames["DEBUG"] + self.levelTagActiveSuffix, foreground="white", background=self.activeBackground )
         self.logText.tag_config(self.levelTagNames["WARNING"] + self.levelTagActiveSuffix, foreground="orange", background=self.activeBackground )
@@ -243,7 +236,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
 
     def insertRecordAt( self, begin, record : HLogRecord, showDetails : bool = False ) -> int:
         self.logText.mark_set( INSERT, begin )
-        msg = record.msg
+        msg = self.format( record )
         if '\n' in msg:
             parts = msg.split('\n')
             msg = parts[0]
@@ -256,6 +249,11 @@ class HierarchicalLogText(RecordingHandler, Frame):
         self.setDefaultRecordTags( begin, end, record )
         self.updateRecordLevelTag( begin, end, record )
         cntInsertedLines = ( self.countLines( begin, end ) + 1 )
+
+#        record.asctime
+#        self.timeFormat = "%Y-%m-%d %H:%M:%S"
+#        timeString = datetime.now().strftime(self.timeFormat)
+
         return cntInsertedLines
 
     # inserts a group of records at index 

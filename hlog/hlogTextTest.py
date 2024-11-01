@@ -5,7 +5,7 @@ import time
 from tkinter import *
 from tkinter.ttk import *
 from hlog import *
-from hlogText import *
+from hlog.hlogText import *
 
 # themes 'winnative', 'clam', 'alt', 'default', 'classic', 'vista', 'xpnative'
 #Theme = 'default'
