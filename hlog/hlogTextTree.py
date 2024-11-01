@@ -10,10 +10,9 @@ import re
 from datetime import datetime
 
 SHOW_DETAILS_OFF = 0
-SHOW_DETAILS_AT_ENTRY = 1
-SHOW_DETAILS_AT_ENTRY_IF_ACTIVE = 2
-SHOW_DETAILS_AT_WIDGET_IF_ACTIVE = 3
-SHOW_DETAILS_AS_TOOLTIP = 4
+SHOW_DETAILS_AT_ENTRY_IF_ACTIVE = 1
+SHOW_DETAILS_AT_WIDGET_IF_ACTIVE = 2
+SHOW_DETAILS_AS_TOOLTIP = 3
 
 class ButtonPressEvent:
     x : int
@@ -298,11 +297,19 @@ class HierarchicalLogTextTree(RecordingHandler, Frame):
         self.style.map(f"{self.name}.Treeview", background=[('selected',tagConfig['background'])],foreground=[('selected',tagConfig['foreground'])])
 
     def alterActiveRecord( self, idx : int ):
+        showDetails = ( self.showDetails == SHOW_DETAILS_AT_ENTRY_IF_ACTIVE 
+                        or self.showDetails == SHOW_DETAILS_AT_WIDGET_IF_ACTIVE )
         currentActiveIdx = self.activeIdx
         if currentActiveIdx <= self.maxIdx():
             self.activeIdx = self.maxCntRecords
-            if self.showDetails == SHOW_DETAILS_AT_ENTRY_IF_ACTIVE:
+            if showDetails:
                 # hide details
+                record = self.record(currentActiveIdx)
+                msg = self.format( record )
+                if '\n' in msg:
+                    parts = msg.split('\n')
+                    msg = parts[0]
+                self.logTextTree.item(currentActiveIdx, text=msg)
                 self.updateParent( self.record(currentActiveIdx) )
                 self.updateRecordLevelTag( self.record(currentActiveIdx) )
                 
@@ -314,6 +321,8 @@ class HierarchicalLogTextTree(RecordingHandler, Frame):
         if self.showDetails == SHOW_DETAILS_AT_ENTRY_IF_ACTIVE:
             record = self.record(idx)
             # show details
+            msg = self.format( record )
+            self.logTextTree.item(idx, text=msg)
             self.updateParent( record )
             self.updateRecordLevelTag( record )
         
