@@ -1,5 +1,6 @@
 from tkinter import *
 from tkinter.ttk import *
+import logging
 from hlog import *
 from tkinter import font
 from tkinter import PhotoImage

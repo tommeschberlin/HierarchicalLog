@@ -12,6 +12,7 @@
             //"program": "hlog/hlogTextTest.py",
             //"program": "hlogTextDemo.py",
             "program": "hlogTextTreeDemo.py",
+            //"program": "hLogTreeViewDemo.py",
             //"program": "hlogFileReaderDemo.py",
             "console": "integratedTerminal",
             "justMyCode": false,
