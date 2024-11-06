@@ -38,7 +38,7 @@ class App(tkinter.Frame):
         super().destroy()
 
     def start(self):
-        self.logger.info("info\nnew line\n   indented new line")
+        self.logger.info("info\n### new line\n * indented new\nHallo\n * indented new line \n * indented new line")
         self.logger.debug("debug")
         self.logger.warning("warning")
         self.logger.error("error")
@@ -61,7 +61,7 @@ class App(tkinter.Frame):
 # create programm window and start mainloop
 Root = Tk()
 Root.resizable(True,True)
-Root.wm_attributes("-topmost", 1)
+#Root.wm_attributes("-topmost", 1)
 
 if __name__ == '__main__':
     App = App( Root )

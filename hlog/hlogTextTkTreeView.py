@@ -9,6 +9,9 @@ import os
 from pathlib import Path
 import re
 from datetime import datetime
+from tkhtmlview import HTMLLabel
+from tkhtmlview import html_parser
+from markdown2 import Markdown
 
 SHOW_DETAILS_OFF = 0
 SHOW_DETAILS_AT_ENTRY_IF_ACTIVE = 1
@@ -107,15 +110,27 @@ class HierarchicalLogTextTree(RecordingHandler, Frame):
         self.cntEnableRequests = 0
         self.showDetails = SHOW_DETAILS_AT_ENTRY_IF_ACTIVE
 
-        self.detailsLabel = ttk.Label(self.logTextTree, background='white', relief='solid', borderwidth=1)
-        self.detailsLabel.place_forget()
-
         myFont = self.style.configure(f"{self.name}.Treeview", 'font')
         if myFont == '':
             myFont = font.nametofont("TkDefaultFont").actual()
 
         self.font = font.Font( family=myFont['family'], size=myFont['size'], overstrike=myFont['overstrike'],
                                slant=myFont['slant'], underline=myFont['underline'], weight=myFont['weight'])
+
+        self.detailsLabel = HTMLLabel(self.logTextTree, background='white', relief='solid', borderwidth=1, font=self.font)
+        self.detailsLabel.place_forget()
+
+        # set html-parser font
+        html_parser.Defs.FONT_SIZE = myFont['size']
+        html_parser.Defs.HEADINGS_FONT_SIZE = {
+            "h1": int( 32/14 * html_parser.Defs.FONT_SIZE ),
+            "h2": int( 24/14 * html_parser.Defs.FONT_SIZE ),
+            "h3": int( 18/14 * html_parser.Defs.FONT_SIZE ),
+            "h4": int( 16/14 * html_parser.Defs.FONT_SIZE ),
+            "h5": int( 13/14 * html_parser.Defs.FONT_SIZE ),
+            "h6": int( 10/14 * html_parser.Defs.FONT_SIZE ),
+        }
+        html_parser.DEFAULT_STACK[html_parser.Fnt.KEY][html_parser.Fnt.SIZE] = [("__DEFAULT__", myFont['size'])]
 
     def destroy(self):
         super().destroy()
@@ -336,7 +351,7 @@ class HierarchicalLogTextTree(RecordingHandler, Frame):
             msg = parts[0]
             # show details
             if self.showDetails == SHOW_DETAILS_AT_ENTRY_IF_ACTIVE and len(parts):
-                self.showRecordDetails( idx, self.font.measure(msg) + 22, '\n'.join( parts[1:len(parts)] ))
+                self.showRecordDetails( idx, msg, '\n'.join( parts[1:len(parts)] ))
         else:
             self.hideRecordDetails()
 
@@ -344,8 +359,15 @@ class HierarchicalLogTextTree(RecordingHandler, Frame):
         self.updateParent( record )
         self.updateRecordLevelTag( record )
 
-    def showRecordDetails( self, idx : int, indent : int, details : str ):
-        self.detailsLabel.configure(text=details)
+    def showRecordDetails( self, idx : int, msg : str, details : str ):
+        leftSpace = 22
+        maxIndent = self.font.measure("NormalMessageText")
+        indent = min( self.font.measure(msg), maxIndent) + leftSpace
+
+        md2html = Markdown()
+        self.detailsLabel.set_html(md2html.convert( details ), strip=False)
+        self.detailsLabel.fit_height()
+        #self.detailsLabel.
         reqW = self.detailsLabel.winfo_reqwidth()
         reqH = self.detailsLabel.winfo_reqheight()
         class boxT:
@@ -355,7 +377,8 @@ class HierarchicalLogTextTree(RecordingHandler, Frame):
         if indent > box.w:
             indent = 0
         width = box.w-indent
-        self.detailsLabel.place(x=box.w-width,y=box.y,width=reqW,height=reqH)
+#        self.detailsLabel.place(x=box.w-width,y=box.y,width=reqW,height=reqH)
+        self.detailsLabel.place(x=box.w-width,y=box.y)
 
     def hideRecordDetails( self ):
         self.detailsLabel.place_forget()
