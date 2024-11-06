@@ -4,7 +4,7 @@ from tkinter.filedialog import *
 from tkinter.ttk import *
 
 from hlog.hlog import *
-from hlog.hlogText import *
+from hlog.hlogTextTkText import *
 
 # themes 'winnative', 'clam', 'alt', 'default', 'classic', 'vista', 'xpnative'
 # Theme = 'default'

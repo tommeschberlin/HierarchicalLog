@@ -1,5 +1,5 @@
 
 from .hlog import *
-from .hlogText import *
-from .hlogTextTree import *
-from .hLogTreeView import *
+from .hlogTextTkText import *
+from .hlogTextTkTreeView import *
+from .hLogTextQtTreeView import *

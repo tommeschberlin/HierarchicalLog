@@ -11,7 +11,7 @@ from PySide6.QtCore import *
 from PySide6.QtWidgets import *
 
 from hlog.hlog import *
-from hlog.hLogTreeView import *
+from hlog.hLogTextQtTreeView import *
 
 
 class MyApp(QApplication):

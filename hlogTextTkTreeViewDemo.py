@@ -3,11 +3,13 @@ from tkinter import *
 from tkinter.ttk import *
 
 from hlog.hlog import *
-from hlog.hlogText import *
+from hlog.hlogTextTkTreeView import *
 
 # themes 'winnative', 'clam', 'alt', 'default', 'classic', 'vista', 'xpnative'
-# Theme = 'default'
-Theme = 'vista'
+Theme = 'default'
+# Theme = 'winnative'
+# Theme = 'alt'
+# Theme = 'vista'
 
 class App(tkinter.Frame):
     # init vars, create UI, start
@@ -25,18 +27,18 @@ class App(tkinter.Frame):
 
         self.title = "HierarchicalLogTextDemo"
 
-        self.hLogText = HierarchicalLogText( self )
-        self.hLogText.DefaultShowSubrecords = True
-        self.hLogText.pack(fill=BOTH, expand=True)
-        self.logger.addHandler(self.hLogText)
+        self.hLogTextTree = HierarchicalLogTextTree( self )
+        self.hLogTextTree.DefaultShowSubrecords = True
+        self.hLogTextTree.pack(fill=BOTH, expand=True)
+        self.logger.addHandler(self.hLogTextTree)
 
     def destroy(self):
-        self.logger.removeHandler( self.hLogText )
+        self.logger.removeHandler( self.hLogTextTree )
         resetLogHierarchy(self.logger)
         super().destroy()
 
     def start(self):
-        self.logger.info("info")
+        self.logger.info("info\nnew line\n   indented new line")
         self.logger.debug("debug")
         self.logger.warning("warning")
         self.logger.error("error")
