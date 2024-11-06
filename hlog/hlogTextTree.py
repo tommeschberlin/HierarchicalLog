@@ -107,6 +107,16 @@ class HierarchicalLogTextTree(RecordingHandler, Frame):
         self.cntEnableRequests = 0
         self.showDetails = SHOW_DETAILS_AT_ENTRY_IF_ACTIVE
 
+        self.detailsLabel = ttk.Label(self.logTextTree, background='white', relief='solid', borderwidth=1)
+        self.detailsLabel.place_forget()
+
+        myFont = self.style.configure(f"{self.name}.Treeview", 'font')
+        if myFont == '':
+            myFont = font.nametofont("TkDefaultFont").actual()
+
+        self.font = font.Font( family=myFont['family'], size=myFont['size'], overstrike=myFont['overstrike'],
+                               slant=myFont['slant'], underline=myFont['underline'], weight=myFont['weight'])
+
     def destroy(self):
         super().destroy()
 
@@ -319,13 +329,36 @@ class HierarchicalLogTextTree(RecordingHandler, Frame):
             return
 
         self.activeIdx = idx
-        if self.showDetails == SHOW_DETAILS_AT_ENTRY_IF_ACTIVE:
-            record = self.record(idx)
+        record = self.record(idx)
+        msg = self.format( record )
+        if '\n' in msg:
+            parts = msg.split('\n')
+            msg = parts[0]
             # show details
-            msg = self.format( record )
-            self.logTextTree.item(idx, text=msg)
-            self.updateParent( record )
-            self.updateRecordLevelTag( record )
+            if self.showDetails == SHOW_DETAILS_AT_ENTRY_IF_ACTIVE and len(parts):
+                self.showRecordDetails( idx, self.font.measure(msg) + 22, '\n'.join( parts[1:len(parts)] ))
+        else:
+            self.hideRecordDetails()
+
+        self.logTextTree.item(idx, text=msg)
+        self.updateParent( record )
+        self.updateRecordLevelTag( record )
+
+    def showRecordDetails( self, idx : int, indent : int, details : str ):
+        self.detailsLabel.configure(text=details)
+        reqW = self.detailsLabel.winfo_reqwidth()
+        reqH = self.detailsLabel.winfo_reqheight()
+        class boxT:
+            def __init__(self): self.x : int; self.y : int; self.w : int; self.h : int
+        box = boxT()
+        box.x, box.y, box.w, box.h = self.logTextTree.bbox( idx )
+        if indent > box.w:
+            indent = 0
+        width = box.w-indent
+        self.detailsLabel.place(x=box.w-width,y=box.y,width=reqW,height=reqH)
+
+    def hideRecordDetails( self ):
+        self.detailsLabel.place_forget()
         
     def clear(self):
         super().clear()
