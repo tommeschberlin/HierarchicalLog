@@ -27,7 +27,7 @@ class App(tkinter.Frame):
 
         self.title = "HierarchicalLogTextDemo"
 
-        self.hLogTextTree = HierarchicalLogTextTree( self )
+        self.hLogTextTree = HLogTextTkTreeView( self )
         self.hLogTextTree.DefaultShowSubrecords = True
         self.hLogTextTree.pack(fill=BOTH, expand=True)
         self.logger.addHandler(self.hLogTextTree)
@@ -39,7 +39,7 @@ class App(tkinter.Frame):
 
     def start(self):
         self.logger.info("info\n### new line\n * indented new\nHallo\n * indented new line \n * indented new line")
-        self.logger.debug("debug")
+        self.logger.debug("debug\n#Blla\n| t | b |\n|---|---|\n| 1 | 2 |")
         self.logger.warning("warning")
         self.logger.error("error")
         self.logger.critical("critical")
@@ -57,7 +57,8 @@ class App(tkinter.Frame):
             for i in range(1000):
                 self.logger.info("info " + str(i))
         print( "insert: %s" % (time.time() - start))
-
+        self.hLogTextTree.select(0)
+        
 # create programm window and start mainloop
 Root = Tk()
 Root.resizable(True,True)

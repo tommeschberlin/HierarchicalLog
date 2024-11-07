@@ -27,7 +27,7 @@ class HLogTextTreeRecord(HLogRecord):
     def __init__(self):
         self.itemId = ''
 
-class HierarchicalLogTextTree(RecordingHandler, Frame):
+class HLogTextTkTreeView(RecordingHandler, Frame):
     CntCreated : int = 0
     DefaultShowSubrecords = False
 
@@ -35,9 +35,9 @@ class HierarchicalLogTextTree(RecordingHandler, Frame):
                  fmt: str = None, maxCntRecords: int =  100000, **kw):
         Frame.__init__(self, master, **kw)
         RecordingHandler.__init__(self, maxCntRecords = maxCntRecords )
-        HierarchicalLogTextTree.CntCreated += 1
+        HLogTextTkTreeView.CntCreated += 1
 
-        self.name = kw.get( 'name', f"HierarchicalLogTextTree{HierarchicalLogTextTree.CntCreated}")
+        self.name = kw.get( 'name', f"HierarchicalLogTextTree{HLogTextTkTreeView.CntCreated}")
 
         self.activeIdx = maxCntRecords
 
@@ -120,7 +120,10 @@ class HierarchicalLogTextTree(RecordingHandler, Frame):
         self.detailsLabel = HTMLLabel(self.logTextTree, background='white', relief='solid', borderwidth=1, font=self.font)
         self.detailsLabel.place_forget()
 
-        # set html-parser font
+        self.detailsCanvas = Canvas(self, width=10, height=10, borderwidth=0, highlightthickness=0)
+        self.detailsCanvas.place_forget()
+
+        # patch html-parser font
         html_parser.Defs.FONT_SIZE = myFont['size']
         html_parser.Defs.HEADINGS_FONT_SIZE = {
             "h1": int( 32/14 * html_parser.Defs.FONT_SIZE ),
@@ -131,9 +134,13 @@ class HierarchicalLogTextTree(RecordingHandler, Frame):
             "h6": int( 10/14 * html_parser.Defs.FONT_SIZE ),
         }
         html_parser.DEFAULT_STACK[html_parser.Fnt.KEY][html_parser.Fnt.SIZE] = [("__DEFAULT__", myFont['size'])]
+        self.md2html = Markdown(extras=['tables'])
 
     def destroy(self):
         super().destroy()
+
+    def select(self, idx):
+        self.logTextTree.selection_set(idx)
 
     def addCustomLevel(self, levelId, levelName, tagConfig = None, tagActiveConfig = None):
         super().addCustomLevel(levelId, levelName)
@@ -364,12 +371,7 @@ class HierarchicalLogTextTree(RecordingHandler, Frame):
         maxIndent = self.font.measure("NormalMessageText")
         indent = min( self.font.measure(msg), maxIndent) + leftSpace
 
-        md2html = Markdown()
-        self.detailsLabel.set_html(md2html.convert( details ), strip=False)
-        self.detailsLabel.fit_height()
-        #self.detailsLabel.
-        reqW = self.detailsLabel.winfo_reqwidth()
-        reqH = self.detailsLabel.winfo_reqheight()
+        # calc position
         class boxT:
             def __init__(self): self.x : int; self.y : int; self.w : int; self.h : int
         box = boxT()
@@ -377,11 +379,49 @@ class HierarchicalLogTextTree(RecordingHandler, Frame):
         if indent > box.w:
             indent = 0
         width = box.w-indent
-#        self.detailsLabel.place(x=box.w-width,y=box.y,width=reqW,height=reqH)
-        self.detailsLabel.place(x=box.w-width,y=box.y)
+        # show label in unseen area, else width calculations will not work
+        self.detailsLabel.place( x=-1000,y=-1000, width=1000, height=1000 )
+                        
+        html = self.md2html.convert( details )
+        self.detailsLabel.set_html(html, strip=True)
+        self.detailsLabel.update()
+
+        reqW = self.detailsLabel.cget('highlightthickness') * 2
+        reqW += self.detailsLabel.cget('borderwidth') * 2
+        reqH = reqW
+        reqW += self.detailsLabel.cget('padx') * 2
+        reqH += self.detailsLabel.cget('pady') * 2
+        reqH += self.detailsLabel.count(1.0, END, 'ypixels', 'update')
+
+        # magic to get pixelwidth, because of req_width works really
+        maxX = 0
+        endLine = int(self.detailsLabel.index(END).split('.')[0])
+        for line in range(1,endLine):
+            lineWidth = self.detailsLabel.count(f"{line}.{0}", f"{line}.{0} lineend", 'xpixels', 'update' )
+            if lineWidth is not None:
+                maxX = max(lineWidth, maxX)
+        reqW += maxX
+
+        # create a curly bracket
+        bracketWidth = 10
+        yOff = int(box.h*0.3)
+        tagName = self.levelTagNameFromIdx( idx ) + self.levelTagActiveSuffix
+        bg = self.logTextTree.tag_configure(tagName, 'background')
+
+        w = bracketWidth
+        h = box.h - yOff + 2
+        x = 0
+        y = yOff
+        self.detailsCanvas.create_polygon([[0,y-2],[x+w,y],[x+w,y+h]], fill="white", outline='black')
+        self.detailsCanvas.place(x=box.w-width,y=box.y, width=bracketWidth, height=box.h)
+        self.detailsCanvas.configure(background=bg )
+
+        self.detailsLabel.place(x=box.w-width+bracketWidth-self.detailsLabel.cget('borderwidth'),y=box.y + yOff, width=reqW, height=reqH)
+
 
     def hideRecordDetails( self ):
         self.detailsLabel.place_forget()
+        self.detailsCanvas.place_forget()
         
     def clear(self):
         super().clear()
