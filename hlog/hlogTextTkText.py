@@ -521,8 +521,8 @@ class HierarchicalLogText(RecordingHandler, Frame):
 
     def onMouseLeftDouble(self, event):
         mouseIndex = self.logText.index( self.logText.index(f"@{event.x},{event.y}") )
-        if self.AlterShowSubrecordsTag in self.logText.tag_names( mouseIndex ):
-            return
+        if self.AlterShowSubrecordsTag in self.logText.tag_names( mouseIndex + " linestart"):
+            self.alterShowSubrecords( event )
 
     def onKeyUp(self, event):
         if self.activeIdx <= self.maxIdx() and self.activeIdx > 0:
