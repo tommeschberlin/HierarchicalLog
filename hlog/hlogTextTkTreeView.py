@@ -79,6 +79,7 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
 
         self.levelTagActiveSuffix = "_ACTIVE"
 
+        self.foreground = 'black'
         self.logTextTree.tag_configure(self.levelTagNames["ERROR"], foreground="red" )
         self.logTextTree.tag_configure(self.levelTagNames["CRITICAL"], foreground="white", background="red" )
         self.logTextTree.tag_configure(self.levelTagNames["INFO"], foreground="black" )
@@ -86,6 +87,7 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         self.logTextTree.tag_configure(self.levelTagNames["WARNING"], foreground="orange" )
 
         self.activeBackground = 'darkgray'
+        self.activeForeground = 'black'
         self.logTextTree.tag_configure(self.levelTagNames["ERROR"] + self.levelTagActiveSuffix , foreground="red", background=self.activeBackground )
         self.logTextTree.tag_configure(self.levelTagNames["CRITICAL"] + self.levelTagActiveSuffix, foreground="white", background="darkred" )
         self.logTextTree.tag_configure(self.levelTagNames["INFO"] + self.levelTagActiveSuffix, foreground="black", background=self.activeBackground )
@@ -142,14 +144,18 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
     def select(self, idx):
         self.logTextTree.selection_set(idx)
 
-    def addCustomLevel(self, levelId, levelName, tagConfig = None, tagActiveConfig = None):
+    def addCustomLevel(self, levelId, levelName, tagConfig : dict[str,str] = None, tagActiveConfig : dict[str,str] = None):
         super().addCustomLevel(levelId, levelName)
+        if tagConfig.get( 'foreground') is None:
+            tagConfig['foreground'] = self.foreground
         self.levelTagNames[levelName] = "Level" + levelName
         if tagConfig is not None:
-            self.logTextTree.tag_configure(self.levelTagNames[levelName], tagConfig)
+            self.logTextTree.tag_configure(self.levelTagNames[levelName], **tagConfig)
             if tagActiveConfig is None:
                 tagActiveConfig = tagConfig
-            self.logTextTree.tag_configure(self.levelTagNames[levelName] + self.levelTagActiveSuffix, tagActiveConfig)
+            if tagActiveConfig.get( 'foreground') is None:
+                tagActiveConfig['foreground'] = self.foreground
+            self.logTextTree.tag_configure( self.levelTagNames[levelName] + self.levelTagActiveSuffix, **tagActiveConfig)
 
     def levelTagNameFromIdx( self, idx ):
         tagNames = self.logTextTree.item( idx, 'tags' )
