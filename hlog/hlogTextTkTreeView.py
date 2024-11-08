@@ -111,6 +111,7 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
 
         self.cntEnableRequests = 0
         self.showDetails = SHOW_DETAILS_AT_ENTRY_IF_ACTIVE
+        self.canShowDetailsInRow = False
 
         myFont = self.style.configure(f"{self.name}.Treeview", 'font')
         if myFont == '':
@@ -168,6 +169,8 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         # children?
         if self.cntFilteredChildren( parent.idx ) > 0:
             self.updateRecordLevelTag( parent, True )
+        if parent.showSubrecords != (self.logTextTree.item( parent.idx )['open'] != 0):
+            self.logTextTree.item( parent.idx, open=parent.showSubrecords )
 
     def updateRecordLevelTag( self, record : HLogTextTreeRecord, force = False ):
         """ To show WARNING,ERROR and CRITCAL colors at parents """
@@ -231,7 +234,8 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
                 continue
 
             #  assert self.logText.tag_names().count( self.markFromIdx( record.idx) ) == 0 
-            insertedIds += self.insertRecordAt( parentId, index + len(insertedIds), record, self.showDetails == SHOW_DETAILS_AT_ENTRY )
+            insertedIds += self.insertRecordAt( parentId, index + len(insertedIds), record, 
+                                                self.showDetails == (SHOW_DETAILS_AT_ENTRY_IF_ACTIVE and self.canShowDetailsInRow and self.activeIdx == idx) )
 
             # insert children
             # only not last element can have children
@@ -423,7 +427,6 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         self.detailsCanvas.configure(background=bg )
 
         self.detailsLabel.place(x=box.w-width+bracketWidth-self.detailsLabel.cget('borderwidth'),y=box.y + yOff, width=reqW, height=reqH)
-
 
     def hideRecordDetails( self ):
         self.detailsLabel.place_forget()
