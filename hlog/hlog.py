@@ -98,8 +98,6 @@ class HLogRecord( logging.LogRecord ):
         self.idx = -1
         self.hierarchyStage = -1 
         """the lower the number is, the higher in hierarchy"""
-        self.showSubrecords = None
-        self.maxChildLevelNo = -1
 
 class LowerLogHierarchyStage():
     """

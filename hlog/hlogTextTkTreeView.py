@@ -26,6 +26,8 @@ class HLogTextTreeRecord(HLogRecord):
     """ Log record to use in HierarchicalLogTextTree """
     def __init__(self):
         self.itemId = ''
+        self.showSubrecords = None
+        self.maxChildLevelNo = -1
 
 class HLogTextTkTreeView(RecordingHandler, Frame):
     CntCreated : int = 0

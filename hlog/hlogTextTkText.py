@@ -13,6 +13,13 @@ SHOW_DETAILS_AT_ENTRY_IF_ACTIVE = 2
 SHOW_DETAILS_AT_WIDGET_IF_ACTIVE = 3
 SHOW_DETAILS_AS_TOOLTIP = 4
 
+class HLogTextTreeRecord(HLogRecord):
+    """ Log record to use in HierarchicalLogTextTree """
+    def __init__(self):
+        self.itemId = ''
+        self.showSubrecords = None
+        self.maxChildLevelNo = -1
+
 class HierarchicalLogText(RecordingHandler, Frame):
     DefaultShowSubrecords = False
 
@@ -166,7 +173,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
             return None,None
         return self.logText.index( str(tagRanges[0]) + " linestart" ), str(tagRanges[1])
     
-    def updateParent( self, parent : HLogRecord ):
+    def updateParent( self, parent : HLogTextTreeRecord ):
         # children?, need to show +/- images
         if self.cntFilteredChildren( parent.idx ) > 0:
             if parent.showSubrecords == True:
@@ -194,7 +201,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
             self.setDefaultRecordTags( begin, end, parent )
             self.updateRecordLevelTag( begin, end, parent, True )
 
-    def updateRecordLevelTag( self, begin, end, record : HLogRecord, force = False ):
+    def updateRecordLevelTag( self, begin, end, record : HLogTextTreeRecord, force = False ):
         """ To show WARNING,ERROR and CRITCAL colors at parents """
         newLevelName = record.levelname
         if record.maxChildLevelNo > 0:
@@ -222,7 +229,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
 
         self.logText.tag_add( newLevelTagName, begin, newEnd )
 
-    def setDefaultRecordTags( self, begin, end, record : HLogRecord):
+    def setDefaultRecordTags( self, begin, end, record : HLogTextTreeRecord):
         self.logText.tag_add( "STAGE%s" % record.hierarchyStage, begin, end )
         self.logText.tag_add( self.markFromIdx( record.idx ), begin, end )
 
@@ -232,7 +239,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
             return 0
         return cntLines[0]
 
-    def insertRecordAt( self, begin, record : HLogRecord, showDetails : bool = False ) -> int:
+    def insertRecordAt( self, begin, record : HLogTextTreeRecord, showDetails : bool = False ) -> int:
         self.logText.mark_set( INSERT, begin )
         msg = self.format( record )
         if '\n' in msg:
@@ -255,7 +262,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
         return cntInsertedLines
 
     # inserts a group of records at index 
-    def insertRecordsAt(self, indicees, index, parent : HLogRecord = None):
+    def insertRecordsAt(self, indicees, index, parent : HLogTextTreeRecord = None):
         cntInsertedLines = 0
         maxChildLevelNo = -1
 
@@ -293,7 +300,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
         
         return cntInsertedLines
 
-    def emit(self, record : HLogRecord)->None:
+    def emit(self, record : HLogTextTreeRecord)->None:
         RecordingHandler.emit( self, record )
 
         # no parent retrieving needed if already done for a previous record
@@ -375,7 +382,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
         self.lastHandledParentIdx = -1
         self.lastHandledRecordHierarchyStage = -1
 
-    def storeLastActivePos( self, recordToRestore : HLogRecord ):
+    def storeLastActivePos( self, recordToRestore : HLogTextTreeRecord ):
         upperViewIndex = self.logText.index( self.logText.index(f"@{0},{0}") )
         if not recordToRestore.hierarchyStage in self.lastActivePos.keys():
             self.lastActivePos[recordToRestore.hierarchyStage] = dict()
@@ -416,7 +423,7 @@ class HierarchicalLogText(RecordingHandler, Frame):
                 if self.activeIdx != record.idx:
                     self.alterActiveRecord(record.idx)
 
-    def restoreLastActivePos(self, parentRecord : HLogRecord ):
+    def restoreLastActivePos(self, parentRecord : HLogTextTreeRecord ):
         """ Restores last active entry """
         hierarchyStage = parentRecord.hierarchyStage + 1
         parentIdx = parentRecord.idx
