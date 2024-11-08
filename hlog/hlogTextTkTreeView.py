@@ -103,6 +103,8 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         # self.logTextTree.bind('<Button-1>', self.onMouseOver)
 
         self.logTextTree.bind('<<TreeviewSelect>>', self.onSelect)
+        self.logTextTree.bind('<<TreeviewOpen>>', self.onOpen)
+        self.logTextTree.bind('<<TreeviewClose>>', self.onClose)
 
         # some chaching
         self.lastHandledRecordHierarchyStage = -1
@@ -340,6 +342,16 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
             newLevelName = logging.getLevelName( record.maxChildLevelNo )
         tagConfig = self.logTextTree.tag_configure(self.levelTagNames[newLevelName] + self.levelTagActiveSuffix )
         self.style.map(f"{self.name}.Treeview", background=[('selected',tagConfig['background'])],foreground=[('selected',tagConfig['foreground'])])
+
+    def onOpen(self, event):
+        selIdx = int(self.logTextTree.selection()[0])
+        record : HLogTextTreeRecord = self.record( selIdx )
+        record.showSubrecords = True
+
+    def onClose(self, event):
+        selIdx = int(self.logTextTree.selection()[0])
+        record : HLogTextTreeRecord = self.record( selIdx )
+        record.showSubrecords = False
 
     def alterActiveRecord( self, idx : int ):
         showDetails = ( self.showDetails == SHOW_DETAILS_AT_ENTRY_IF_ACTIVE 
