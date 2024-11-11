@@ -411,7 +411,9 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         details = '\n'.join( parts[1:len(parts)] )
 
         # calc position and size
-        indent = self.font.measure("###")
+        indent = self.font.measure("####")
+        indent += record.hierarchyStage * 20
+
         class boxT:
             def __init__(self): self.x : int; self.y : int; self.w : int; self.h : int
         box = boxT()

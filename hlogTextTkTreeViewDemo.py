@@ -46,7 +46,7 @@ class App(tkinter.Frame):
 
         with EnterLowerLogHierarchyStage( "0-0 Stage 0 -> 1", self.logger ) :
             with EnterLowerLogHierarchyStage( "1-0 Stage 1 -> 2", self.logger ) :
-                self.logger.debug("2-0 something with already lowered log hierarchy stage here")
+                self.logger.debug("2-0 something with already lowered log hierarchy stage here\n|a|a|\n|---|---|\n| 1 | 2 |")
                 with EnterLowerLogHierarchyStage( "2-1 Stage 2 -> 3", self.logger ) :
                     self.logger.debug("3-0 something with already lowered log hierarchy stage here")
                 self.logger.debug("2-2 something with already lowered log hierarchy stage here")
