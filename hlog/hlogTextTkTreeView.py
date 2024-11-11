@@ -56,7 +56,7 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         #style.configure("Treeview",background="Black", foreground="White",fieldbackground="red")
         #style.map('Treeview', background=[('selected','green')],foreground=[('selected','white')])
 
-        self.logTextTree = ttk.Treeview( self, xscrollcommand=self.scrollX.set, yscrollcommand=self.scrollY.set, show="tree headings", selectmode="browse",
+        self.logTextTree = ttk.Treeview( self, xscrollcommand=self.scrollX.set, yscrollcommand=self.scrollYCmd, show="tree headings", selectmode="browse",
                                          columns=['Text','More', 'Time'], style=f"{self.name}.Treeview" )
 
         self.scrollX.configure( command=self.logTextTree.xview )
@@ -99,6 +99,7 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         # update
         self.bind('<Configure>', self.onConfigureOrMap)
         self.bind('<Map>', self.onConfigureOrMap)
+        #self.scrollY.bind('<Sc>', self.updateActiveRecordDetailsPosition)
 
         # self.logTextTree.bind('<Button-1>', self.onMouseOver)
 
@@ -124,11 +125,8 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         self.font = font.Font( family=myFont['family'], size=myFont['size'], overstrike=myFont['overstrike'],
                                slant=myFont['slant'], underline=myFont['underline'], weight=myFont['weight'])
 
-        self.detailsLabel = HTMLLabel(self.logTextTree, background='white', relief='solid', borderwidth=1, font=self.font)
+        self.detailsLabel = HTMLLabel(self.logTextTree, font=self.font)
         self.detailsLabel.place_forget()
-
-        self.detailsCanvas = Canvas(self, width=10, height=10, borderwidth=0, highlightthickness=0)
-        self.detailsCanvas.place_forget()
 
         # patch html-parser font
         html_parser.Defs.FONT_SIZE = myFont['size']
@@ -142,6 +140,10 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         }
         html_parser.DEFAULT_STACK[html_parser.Fnt.KEY][html_parser.Fnt.SIZE] = [("__DEFAULT__", myFont['size'])]
         self.md2html = Markdown(extras=['tables'])
+
+    def scrollYCmd(self, *args):
+        self.scrollY.set(*args)
+        self.updateActiveRecordDetails()
 
     def destroy(self):
         super().destroy()
@@ -310,6 +312,7 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         self.pageSize = self.logTextTree.cget( 'height' )
         """Adjust scroll position according to the scale."""
         def adjust():
+            self.updateActiveRecordDetails()
             self.update_idletasks() # "force" redraw
 
             #x, y = self.scale.coords()
@@ -380,72 +383,73 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         if '\n' in msg:
             parts = msg.split('\n')
             msg = parts[0]
-            # show details
-            if self.showDetails == SHOW_DETAILS_AT_ENTRY_IF_ACTIVE and len(parts):
-                self.showRecordDetails( idx, msg, '\n'.join( parts[1:len(parts)] ))
-        else:
-            self.hideRecordDetails()
 
         self.logTextTree.item(idx, text=msg)
         self.updateParent( record )
         self.updateRecordLevelTag( record )
+        self.updateActiveRecordDetails()
 
-    def showRecordDetails( self, idx : int, msg : str, details : str ):
-        leftSpace = 22
-        maxIndent = self.font.measure("NormalMessageText")
-        indent = min( self.font.measure(msg), maxIndent) + leftSpace
+    def updateActiveRecordDetails( self ):
+        if self.showDetails != SHOW_DETAILS_AT_ENTRY_IF_ACTIVE or self.activeIdx == self.maxCntRecords:
+            self.detailsLabel.place_forget()
+            return
 
-        # calc position
+        boxList = self.logTextTree.bbox( self.activeIdx )
+        if not len(boxList):
+            self.detailsLabel.place_forget()
+            return
+
+        record : HLogTextTreeRecord = self.record(self.activeIdx)
+        msg = self.format( record )
+        if not '\n' in msg: 
+            self.detailsLabel.place_forget()
+            return
+
+        # extract/show details
+        parts = msg.split('\n')
+        msg = parts[0]
+        details = '\n'.join( parts[1:len(parts)] )
+
+        # calc position and size
+        indent = self.font.measure("###")
         class boxT:
             def __init__(self): self.x : int; self.y : int; self.w : int; self.h : int
         box = boxT()
-        box.x, box.y, box.w, box.h = self.logTextTree.bbox( idx )
+        box.x, box.y, box.w, box.h = boxList
         if indent > box.w:
             indent = 0
-        width = box.w-indent
+        width = box.w-indent+1
+
         # show label in unseen area, else width calculations will not work
         self.detailsLabel.place( x=-1000,y=-1000, width=1000, height=1000 )
-                        
+
+        # set colors                        
+        tagName = self.levelTagNameFromIdx( self.activeIdx )
+        fg = self.logTextTree.tag_configure(tagName, 'foreground')
+        html_parser.DEFAULT_STACK[html_parser.WCfg.KEY][html_parser.WCfg.FOREGROUND]= [("__DEFAULT__", f"{fg}")]
+        self.detailsLabel.configure(background=self.logTextTree.tag_configure(tagName, 'background'))
+
+        # insert markdown
         html = self.md2html.convert( details )
         self.detailsLabel.set_html(html, strip=True)
         self.detailsLabel.update()
 
-        reqW = self.detailsLabel.cget('highlightthickness') * 2
-        reqW += self.detailsLabel.cget('borderwidth') * 2
-        reqH = reqW
-        reqW += self.detailsLabel.cget('padx') * 2
+        reqH = self.detailsLabel.cget('highlightthickness') * 2
+        reqH += self.detailsLabel.cget('borderwidth') * 2
         reqH += self.detailsLabel.cget('pady') * 2
         reqH += self.detailsLabel.count(1.0, END, 'ypixels', 'update')
 
         # magic to get pixelwidth, because of req_width works really
-        maxX = 0
-        endLine = int(self.detailsLabel.index(END).split('.')[0])
-        for line in range(1,endLine):
-            lineWidth = self.detailsLabel.count(f"{line}.{0}", f"{line}.{0} lineend", 'xpixels', 'update' )
-            if lineWidth is not None:
-                maxX = max(lineWidth, maxX)
-        reqW += maxX
+        #maxX = 0
+        #endLine = int(self.detailsLabel.index(END).split('.')[0])
+        #for line in range(1,endLine):
+        #    lineWidth = self.detailsLabel.count(f"{line}.{0}", f"{line}.{0} lineend", 'xpixels', 'update' )
+        #    if lineWidth is not None:
+        #        maxX = max(lineWidth, maxX)
+        #reqW += maxX
 
-        # create a curly bracket
-        bracketWidth = 10
-        yOff = int(box.h*0.3)
-        tagName = self.levelTagNameFromIdx( idx ) + self.levelTagActiveSuffix
-        bg = self.logTextTree.tag_configure(tagName, 'background')
-
-        w = bracketWidth
-        h = box.h - yOff + 2
-        x = 0
-        y = yOff
-        self.detailsCanvas.create_polygon([[0,y-2],[x+w,y],[x+w,y+h]], fill="white", outline='black')
-        self.detailsCanvas.place(x=box.w-width,y=box.y, width=bracketWidth, height=box.h)
-        self.detailsCanvas.configure(background=bg )
-
-        self.detailsLabel.place(x=box.w-width+bracketWidth-self.detailsLabel.cget('borderwidth'),y=box.y + yOff, width=reqW, height=reqH)
-
-    def hideRecordDetails( self ):
-        self.detailsLabel.place_forget()
-        self.detailsCanvas.place_forget()
-        
+        self.detailsLabel.place(x=indent,y=box.y + box.h, width=width, height=reqH)
+      
     def clear(self):
         super().clear()
         self.activeIdx = self.maxCntRecords

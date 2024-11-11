@@ -40,8 +40,8 @@ class App(tkinter.Frame):
     def start(self):
         self.logger.info("info\n### new line\n * indented new\nHallo\n * indented new line \n * indented new line")
         self.logger.debug("debug\n#Blla\n| t | b |\n|---|---|\n| 1 | 2 |")
-        self.logger.warning("warning")
-        self.logger.error("error")
+        self.logger.warning("warning\n#HaHa")
+        self.logger.error("error\n#HiHi")
         self.logger.critical("critical")
 
         with EnterLowerLogHierarchyStage( "0-0 Stage 0 -> 1", self.logger ) :
