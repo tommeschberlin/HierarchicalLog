@@ -448,7 +448,10 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         #        maxX = max(lineWidth, maxX)
         #reqW += maxX
 
-        self.detailsLabel.place(x=indent,y=box.y + box.h, width=width, height=reqH)
+        y = box.y + box.h
+        if y + reqH > self.logTextTree.winfo_height():
+           y = box.y - reqH 
+        self.detailsLabel.place(x=indent,y=y, width=width, height=reqH)
       
     def clear(self):
         super().clear()
