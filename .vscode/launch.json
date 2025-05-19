@@ -8,16 +8,16 @@
             "name": "Python Debugger: Test",
             "type": "debugpy",
             "request": "launch",
-            //"program": "hlog/hlogTest.py",
-            //"program": "hlog/hlogTextTest.py",
+            //"program": "Tests/test_hlog.py",
+            "program": "Tests/test_hlogTkText.py",
             //"program": "hlogTextTkTextDemo.py",
-            "program": "hlogTextTkTreeViewDemo.py",
+            //"program": "hlogTextTkTreeViewDemo.py",
             //"program": "hLogQtTreeViewDemo.py",
             //"program": "hlogFileReaderDemo.py",
             "console": "integratedTerminal",
-            "justMyCode": false,
+            "justMyCode": true,
             "purpose": ["debug-test"],
-            "env": { "PYTEST_ADDOPTS": "--no-cov" }
+            //"env": { "PYTEST_ADDOPTS": "--no-cov" }
         }
     ]
 }

@@ -1,19 +1,12 @@
-import logging.handlers
-import os
-import unittest
-import logging
-import re
+import os, sys, pytest, logging, re, tempfile
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from hlog import *
 
-class TestHierarchicalLog(unittest.TestCase):
-    def __init__(self, methodName: str = "runTest") -> None:
-        super().__init__(methodName)
-        self.workDir = os.path.join( 'c:/', 'tmp' )
-        if not os.path.exists( self.workDir ):
-            raise Exception( 'Error', 'No workDir \"%s\" found!' % self.workDir )
-    
-    def setUp(self):
+class TestHierarchicalLog:
+    def setup_method(self):
+        self.workDir = tempfile.gettempdir()
         self.logFile = os.path.join( self.workDir, 'test.log' )
         if os.path.isfile(self.logFile):
             os.remove(self.logFile)
@@ -28,7 +21,7 @@ class TestHierarchicalLog(unittest.TestCase):
         self.recordingHandler = RecordingHandler()
         self.logger.addHandler(self.recordingHandler)
 
-    def tearDown(self):
+    def teardown_method(self):
         self.logger.removeHandler(self.fileHandler)
         self.fileHandler = None
         self.logger.removeHandler(self.recordingHandler)
@@ -53,8 +46,8 @@ class TestHierarchicalLog(unittest.TestCase):
         self.logger.info('Finished')
         self.fileHandler.close()
         content = '\n'.join( self.logFileContent( self.logFile ) )
-        self.assertTrue( re.search("Started", content ), "Check Started" )
-        self.assertTrue( re.search("Finished", content ), "Check Finished" )
+        assert re.search("Started", content ), "Check Started"
+        assert re.search("Finished", content ), "Check Finished"
 
     # Test RecordingHandler
     # @unittest.skip("skipped temporarily")
@@ -65,12 +58,12 @@ class TestHierarchicalLog(unittest.TestCase):
         for i in range(10):
             self.logger.info(str(i))
 
-        self.assertEqual( recordingHandler.at( 0 ).message, "0", "Check Handler record 0" )
-        self.assertEqual( recordingHandler.at( 9 ).message, "9", "Check Handler record 9" )
+        assert recordingHandler.at( 0 ).message == "0", "Check Handler record 0"
+        assert recordingHandler.at( 9 ).message == "9", "Check Handler record 9"
         self.logger.info(str(10))
-        self.assertEqual( recordingHandler.at( 0 ), None, "Check Handler record 0 is None" )
-        self.assertEqual( recordingHandler.at( 1 ).message, "1", "Check Handler record 1" )
-        self.assertEqual( recordingHandler.at( 10 ).message, "10", "Check Handler record 10" )
+        assert recordingHandler.at( 0 ) == None, "Check Handler record 0 is None"
+        assert recordingHandler.at( 1 ).message == "1", "Check Handler record 1"
+        assert recordingHandler.at( 10 ).message == "10", "Check Handler record 10"
 
     # Test if, hierarchy stage can be set in python logging system
     # @unittest.skip("skipped temporarily")
@@ -85,10 +78,10 @@ class TestHierarchicalLog(unittest.TestCase):
 
         self.logger.info('Finished')
 
-        self.assertEqual( self.recordingHandler.at(0).hierarchyStage, 0 , "Check Hierarchy stage" )
-        self.assertEqual( self.recordingHandler.at(1).hierarchyStage, 0 , "Check Hierarchy stage" )
-        self.assertEqual( self.recordingHandler.at(2).hierarchyStage, 1 , "Check Hierarchy stage" )
-        self.assertEqual( self.recordingHandler.at(3).hierarchyStage, 0 , "Check Hierarchy stage" )
+        assert self.recordingHandler.at(0).hierarchyStage == 0 , "Check Hierarchy stage"
+        assert self.recordingHandler.at(1).hierarchyStage == 0 , "Check Hierarchy stage"
+        assert self.recordingHandler.at(2).hierarchyStage == 1 , "Check Hierarchy stage"
+        assert self.recordingHandler.at(3).hierarchyStage == 0 , "Check Hierarchy stage"
 
     # Test if, hierarchy stage can be set in python logging system
     # @unittest.skip("skipped temporarily")
@@ -103,73 +96,71 @@ class TestHierarchicalLog(unittest.TestCase):
 
         self.logger.info('Finished')
 
-        self.assertEqual( self.recordingHandler.at(0).hierarchyStage, 0 , "Check Hierarchy stage" )
-        self.assertEqual( self.recordingHandler.at(1).hierarchyStage, 1 , "Check Hierarchy stage" )
-        self.assertEqual( self.recordingHandler.at(2).hierarchyStage, 0 , "Check Hierarchy stage" )
+        assert self.recordingHandler.at(0).hierarchyStage == 0 , "Check Hierarchy stage"
+        assert self.recordingHandler.at(1).hierarchyStage == 1 , "Check Hierarchy stage"
+        assert self.recordingHandler.at(2).hierarchyStage == 0 , "Check Hierarchy stage"
     
     # Test if, hierarchy stage can be set in python logging system
     # @unittest.skip("skipped temporarily")
     def test_maxIdx(self):
         self.fillLog()
-        self.assertEqual( self.recordingHandler.maxIdx(), 4 )
+        assert self.recordingHandler.maxIdx() == 4
 
     def test_minIdx(self):
         self.fillLog()
-        self.assertEqual( self.recordingHandler.minIdx(), 0 )
+        assert self.recordingHandler.minIdx() == 0
     
     def test_at(self):
         self.fillLog()
-        self.assertEqual( self.recordingHandler.at( 5 ), None)
-        self.assertEqual( self.recordingHandler.at( 3 ).message, "11"  )
+        assert self.recordingHandler.at( 5 ) == None
+        assert self.recordingHandler.at( 3 ).message == "11"
     
     def test_record( self):
         self.fillLog()
-        self.assertEqual( self.recordingHandler.record( 4 ).message, "01"  )
+        assert self.recordingHandler.record( 4 ).message == "01"
 
     def test_getChildren( self ):
         self.fillLog()
-        self.assertEqual( len( self.recordingHandler.getFilteredChildren( 0 ) ), 2  )
-        self.assertEqual( len( self.recordingHandler.getFilteredChildren( 1 ) ), 1  )
-        self.assertEqual( len( self.recordingHandler.getFilteredChildren( 2 ) ), 0  )
-        self.assertEqual( len( self.recordingHandler.getFilteredChildren( 3 ) ), 0  )
-        self.assertEqual( len( self.recordingHandler.getFilteredChildren( 4 ) ), 0  )
+        assert len( self.recordingHandler.getFilteredChildren( 0 ) ) == 2
+        assert len( self.recordingHandler.getFilteredChildren( 1 ) ) == 1
+        assert len( self.recordingHandler.getFilteredChildren( 2 ) ) == 0
+        assert len( self.recordingHandler.getFilteredChildren( 3 ) ) == 0
+        assert len( self.recordingHandler.getFilteredChildren( 4 ) ) == 0
 
     def test_getFilteredChildren( self ):
         self.fillLog()
-        self.assertEqual( len( self.recordingHandler.getFilteredChildren( None ) ), 2  )
-        self.assertEqual( len( self.recordingHandler.getFilteredChildren( 1 ) ), 1  )
+        assert len( self.recordingHandler.getFilteredChildren( None ) ) == 2
+        assert len( self.recordingHandler.getFilteredChildren( 1 ) ) == 1
 
         self.recordingHandler.levelNamesFilter["WARNING"] = False
-        self.assertEqual( len( self.recordingHandler.getFilteredChildren( None ) ), 1  )
+        assert len( self.recordingHandler.getFilteredChildren( None ) ) == 1
 
         self.recordingHandler.levelNamesFilter["DEBUG"] = False
-        self.assertEqual( len( self.recordingHandler.getFilteredChildren( 1 ) ), 0  )
+        assert len( self.recordingHandler.getFilteredChildren( 1 ) ) == 0
 
     def test_cntChildren( self):
         self.fillLog()
-        self.assertEqual( self.recordingHandler.cntFilteredChildren( 0 ), 2  )
-        self.assertEqual( self.recordingHandler.cntFilteredChildren( 1 ), 1  )
-        self.assertEqual( self.recordingHandler.cntFilteredChildren( 2 ), 0  )
-        self.assertEqual( self.recordingHandler.cntFilteredChildren( 3 ), 0  )
-        self.assertEqual( self.recordingHandler.cntFilteredChildren( 4 ), 0  )
+        assert self.recordingHandler.cntFilteredChildren( 0 ) == 2
+        assert self.recordingHandler.cntFilteredChildren( 1 ) == 1
+        assert self.recordingHandler.cntFilteredChildren( 2 ) == 0
+        assert self.recordingHandler.cntFilteredChildren( 3 ) == 0
+        assert self.recordingHandler.cntFilteredChildren( 4 ) == 0
 
     def test_parentIdx( self ):
         self.fillLog()
-        self.assertEqual( self.recordingHandler.parentIdx( 0 ), None  )
-        self.assertEqual( self.recordingHandler.parentIdx( 1 ), 0 )
-        self.assertEqual( self.recordingHandler.parentIdx( 2 ), 1 )
-        self.assertEqual( self.recordingHandler.parentIdx( 3 ), 0 )
-        self.assertEqual( self.recordingHandler.parentIdx( 4 ), None )
-
+        assert self.recordingHandler.parentIdx( 0 ) == None
+        assert self.recordingHandler.parentIdx( 1 ) == 0
+        assert self.recordingHandler.parentIdx( 2 ) == 1
+        assert self.recordingHandler.parentIdx( 3 ) == 0
+        assert self.recordingHandler.parentIdx( 4 ) == None
 
     def test_parentRecord( self ):
         self.fillLog()
-        self.assertEqual( self.recordingHandler.parentRecord( 0 ), None  )
-        self.assertEqual( self.recordingHandler.parentRecord( 1 ).message, "00" )
-        self.assertEqual( self.recordingHandler.parentRecord( 2 ).message, "10" )
-        self.assertEqual( self.recordingHandler.parentRecord( 3 ).message, "00" )
-        self.assertEqual( self.recordingHandler.parentRecord( 4 ), None )
-    
+        assert self.recordingHandler.parentRecord( 0 ) == None
+        assert self.recordingHandler.parentRecord( 1 ).message == "00"
+        assert self.recordingHandler.parentRecord( 2 ).message == "10"
+        assert self.recordingHandler.parentRecord( 3 ).message == "00"
+        assert self.recordingHandler.parentRecord( 4 ) == None
 
     # Test HierarchyFormatter
     # @unittest.skip("skipped temporarily")
@@ -203,12 +194,12 @@ class TestHierarchicalLog(unittest.TestCase):
         
         match = "^%s %s -     INFO - 00\n$" % (branchMatch(0), dateTimeMatch)
         res = re.fullmatch(match, content[0])
-        self.assertIsNotNone(res)
+        assert res != None
 
         for i in range(1,5):
             match = "^%s %s -  WARNING - 0%s\n$" % (branchMatch(1), dateTimeMatch, i)
             res = re.fullmatch(match, content[i])
-            self.assertIsNotNone(res)
+            assert res != None
 
         # parse the already written logile and create a new log 
         fileInputLogger = logging.getLogger('testHierarchyIO-FromFile')
@@ -219,15 +210,16 @@ class TestHierarchicalLog(unittest.TestCase):
         logFileReader : HLogFileReader = HLogFileReader( fileInputLogger, logFormatter._fmt )
         logFileReader.read( hierarchyLogFile )
 
-        self.assertEqual( len(recordingHandler.records), len(fileInputRecordingHandler.records), "Created and read mustbe the same!" )
+        assert len(recordingHandler.records) == len(fileInputRecordingHandler.records), "Created and read mustbe the same!"
 
         for i in range(0, len(recordingHandler.records)):
             origRecord : HLogRecord = recordingHandler.records[i]
             readRecord : HLogRecord = fileInputRecordingHandler.records[i]
-            self.assertEqual( int(origRecord.created), readRecord.created )
-            self.assertEqual( origRecord.levelno, readRecord.levelno)
-            self.assertEqual( origRecord.hierarchyStage, readRecord.hierarchyStage )
-            self.assertEqual( origRecord.msg, readRecord.msg )
+            assert int(origRecord.created) == readRecord.created, "Has to be equal"
+            assert origRecord.levelno == readRecord.levelno
+            assert origRecord.hierarchyStage == readRecord.hierarchyStage
+            assert origRecord.msg == readRecord.msg
 
 if __name__ == '__main__':
-    unittest.main()
+    import pytest, sys
+    pytest.main([sys.argv[0], "-v"])
