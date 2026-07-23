@@ -1,7 +1,7 @@
 from tkinter import *
 from tkinter.ttk import *
 import logging
-from hlog import *
+from hlog.hlog import *
 from tkinter import font
 from tkinter import PhotoImage
 from tkinter import ttk

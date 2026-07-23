@@ -1,11 +1,10 @@
 from tkinter import *
 from tkinter.ttk import *
-from hlog import *
+from HierarchicalLog.hlog.hlog import *
 from tkinter import font
 from tkinter import PhotoImage
-import os
+import os,re
 from pathlib import Path
-import re
 
 SHOW_DETAILS_OFF = 0
 SHOW_DETAILS_AT_ENTRY = 1
