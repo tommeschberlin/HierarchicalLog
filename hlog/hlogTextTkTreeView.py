@@ -394,7 +394,9 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
             self.detailsLabel.place_forget()
             return
 
-        boxList = self.logTextTree.bbox( self.activeIdx )
+                # Use bbox of the entry's tree column (column '#0') to determine the left edge,
+        # then extend the popup from the right side of the entry to the scrollbar
+        boxList = self.logTextTree.bbox( self.activeIdx, column='#0' )
         if not len(boxList):
             self.detailsLabel.place_forget()
             return
@@ -410,17 +412,15 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         msg = parts[0]
         details = '\n'.join( parts[1:len(parts)] )
 
-        # calc position and size
-        indent = self.font.measure("####")
-        indent += record.hierarchyStage * 20
-
+        # calc position: left edge = right side of the entry's bbox (tree column)
+        # width = from there to the right edge of the treeview
         class boxT:
             def __init__(self): self.x : int; self.y : int; self.w : int; self.h : int
+
         box = boxT()
         box.x, box.y, box.w, box.h = boxList
-        if indent > box.w:
-            indent = 0
-        width = box.w-indent+1
+        x = box.x + box.w
+        width = self.logTextTree.winfo_width() - x
 
         # show label in unseen area, else width calculations will not work
         self.detailsLabel.place( x=-1000,y=-1000, width=1000, height=1000 )
@@ -441,19 +441,10 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         reqH += self.detailsLabel.cget('pady') * 2
         reqH += self.detailsLabel.count(1.0, END, 'ypixels', 'update')
 
-        # magic to get pixelwidth, because of req_width works really
-        #maxX = 0
-        #endLine = int(self.detailsLabel.index(END).split('.')[0])
-        #for line in range(1,endLine):
-        #    lineWidth = self.detailsLabel.count(f"{line}.{0}", f"{line}.{0} lineend", 'xpixels', 'update' )
-        #    if lineWidth is not None:
-        #        maxX = max(lineWidth, maxX)
-        #reqW += maxX
-
-        y = box.y + box.h
+        y = box.y
         if y + reqH > self.logTextTree.winfo_height():
-           y = box.y - reqH 
-        self.detailsLabel.place(x=indent,y=y, width=width, height=reqH)
+           y = self.logTextTree.winfo_height() - reqH
+        self.detailsLabel.place(x=x, y=y, width=width, height=reqH)
       
     def clear(self):
         super().clear()
