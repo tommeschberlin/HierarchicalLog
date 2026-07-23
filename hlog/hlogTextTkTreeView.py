@@ -5,6 +5,7 @@ from hlog.hlog import *
 from tkinter import font
 from tkinter import PhotoImage
 from tkinter import ttk
+from tkinter import Tk
 import os
 from pathlib import Path
 import re
@@ -29,6 +30,18 @@ class HLogTextTreeRecord(HLogRecord):
         self.showSubrecords = None
         self.maxChildLevelNo = -1
 
+def _create_rounded_rect(canvas, x1, y1, x2, y2, r, **kwargs):
+    """Zeichnet ein abgerundetes Rechteck auf einem Canvas."""
+    points = []
+    # gegen Uhrzeigersinn, beginnend oben links
+    points += [x1+r, y1, x2-r, y1,
+               x2, y1, x2, y1+r,
+               x2, y2-r, x2, y2,
+               x2-r, y2, x1+r, y2,
+               x1, y2, x1, y2-r,
+               x1, y1+r, x1, y1]
+    return canvas.create_polygon(points, smooth=True, **kwargs)
+
 class HLogTextTkTreeView(RecordingHandler, Frame):
     CntCreated : int = 0
     DefaultShowSubrecords = False
@@ -50,11 +63,7 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         self.scrollX = Scrollbar( self, orient='horizontal' )
         self.scrollY = Scrollbar( self, orient='vertical' )
 
-
         self.style = ttk.Style()
-        #style.theme_use("default")
-        #style.configure("Treeview",background="Black", foreground="White",fieldbackground="red")
-        #style.map('Treeview', background=[('selected','green')],foreground=[('selected','white')])
 
         self.logTextTree = ttk.Treeview( self, xscrollcommand=self.scrollX.set, yscrollcommand=self.scrollYCmd, show="tree headings", selectmode="browse",
                                          columns=['Text','More', 'Time'], style=f"{self.name}.Treeview" )
@@ -64,7 +73,6 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
 
         self.timeFormat = "%Y-%m-%d %H:%M:%S"
         timeString = datetime.now().strftime(self.timeFormat)
-        # self.dateText.configure( width = len(timeString))
 
         self.logTextTree.grid( row=0, column=0, sticky='news' )
         self.scrollY.grid( row=0, column=1, sticky='news')
@@ -99,9 +107,6 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         # update
         self.bind('<Configure>', self.onConfigureOrMap)
         self.bind('<Map>', self.onConfigureOrMap)
-        #self.scrollY.bind('<Sc>', self.updateActiveRecordDetailsPosition)
-
-        # self.logTextTree.bind('<Button-1>', self.onMouseOver)
 
         self.logTextTree.bind('<<TreeviewSelect>>', self.onSelect)
         self.logTextTree.bind('<<TreeviewOpen>>', self.onOpen)
@@ -125,13 +130,12 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         self.font = font.Font( family=myFont['family'], size=myFont['size'], overstrike=myFont['overstrike'],
                                slant=myFont['slant'], underline=myFont['underline'], weight=myFont['weight'])
 
-        # Container für die Sprechblase (Details-Popup)
-        self.detailsContainer = Frame(self.logTextTree, relief='solid', borderwidth=2)
-        self.detailsLabel = HTMLLabel(self.detailsContainer, font=self.font,
+        # Sprechblase (Details-Popup) mit abgerundeten Ecken via Canvas
+        self.detailsCanvas = Canvas(self.logTextTree, highlightthickness=0, borderwidth=0)
+        self.detailsLabel = HTMLLabel(self.detailsCanvas, font=self.font,
                                         relief='flat', borderwidth=0, padx=6, pady=6)
-        
-        self.detailsLabel.pack(fill=BOTH, expand=True)
-        self.detailsContainer.place_forget()
+        self._detailsWindowId = self.detailsCanvas.create_window(0, 0, window=self.detailsLabel, anchor='nw')
+        self.detailsCanvas.place_forget()
 
         # patch html-parser font
         html_parser.Defs.FONT_SIZE = myFont['size']
@@ -218,12 +222,8 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         self.updateRecordLevelTag( record )
         return record.itemId
 
-#        record.asctime
-#        self.timeFormat = "%Y-%m-%d %H:%M:%S"
-#        timeString = datetime.now().strftime(self.timeFormat)
-
-    # inserts a group of records at index 
     def insertRecordsAt(self, indicees, index, parent : HLogTextTreeRecord = None):
+        """ inserts a group of records at index """
         insertedIds = []
         maxChildLevelNo = -1
         parentId = ''
@@ -244,7 +244,6 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
             if not self.passedFilter( record ):
                 continue
 
-            #  assert self.logText.tag_names().count( self.markFromIdx( record.idx) ) == 0 
             insertedIds += self.insertRecordAt( parentId, index + len(insertedIds), record, 
                                                 self.showDetails == (SHOW_DETAILS_AT_ENTRY_IF_ACTIVE and self.canShowDetailsInRow and self.activeIdx == idx) )
 
@@ -315,18 +314,10 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
 
     def onConfigureOrMap(self, *args):
         self.pageSize = self.logTextTree.cget( 'height' )
-        """Adjust scroll position according to the scale."""
         def adjust():
+            """Adjust scroll position according to the scale."""
             self.updateActiveRecordDetails()
             self.update_idletasks() # "force" redraw
-
-            #x, y = self.scale.coords()
-            #if self._label_top:
-            #    y = self.scale.winfo_y() - self.label.winfo_reqheight()
-            #else:
-            #    y = self.scale.winfo_reqheight() + self.label.winfo_reqheight()
-            #self.label.place_configure(x=x, y=y)
-
         self.after_idle(adjust)
 
     def onMouseOver(self, event : ButtonPressEvent ):
@@ -379,7 +370,7 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
                 self.updateRecordLevelTag( self.record(currentActiveIdx) )
                 
         if idx == currentActiveIdx:
-            """ only deactivated the current active one"""
+            # only deactivated the current active one
             return
 
         self.activeIdx = idx
@@ -396,20 +387,20 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
 
     def updateActiveRecordDetails( self ):
         if self.showDetails != SHOW_DETAILS_AT_ENTRY_IF_ACTIVE or self.activeIdx == self.maxCntRecords:
-            self.detailsContainer.place_forget()
+            self.detailsCanvas.place_forget()
             return
 
         # Use bbox of the entry's tree column (column '#0') to determine the left edge,
         # then extend the popup from the right side of the entry to the scrollbar
         boxList = self.logTextTree.bbox( self.activeIdx, column='#0' )
         if not len(boxList):
-            self.detailsContainer.place_forget()
+            self.detailsCanvas.place_forget()
             return
 
         record : HLogTextTreeRecord = self.record(self.activeIdx)
         msg = self.format( record )
         if not '\n' in msg: 
-            self.detailsContainer.place_forget()
+            self.detailsCanvas.place_forget()
             return
 
         # extract/show details
@@ -438,20 +429,54 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         # insert markdown
         html = self.md2html.convert( details )
         self.detailsLabel.set_html(html, strip=True)
-        self.detailsLabel.update()
 
+        # Label vor dem Messen auf volle Breite setzen, damit Text nicht umbricht
+        self.detailsCanvas.place(x=0, y=-1000, width=1000, height=1000)
+        self.detailsCanvas.itemconfig(self._detailsWindowId, width=3000)
+        self.detailsCanvas.update()
+
+        # Textbreite über die längste Zeile ermitteln
+        maxLineWidth = 0
+        endLine = int(self.detailsLabel.index(END).split('.')[0])
+        for line in range(1, endLine):
+            lineWidth = self.detailsLabel.count(f"{line}.0", f"{line}.0 lineend", 'xpixels', 'update')
+            if lineWidth is not None:
+                maxLineWidth = max(lineWidth, maxLineWidth)
+
+        # Höhe aus Textzeilen
         reqH = self.detailsLabel.cget('highlightthickness') * 2
         reqH += self.detailsLabel.cget('borderwidth') * 2
         reqH += self.detailsLabel.cget('pady') * 2
         reqH += self.detailsLabel.count(1.0, END, 'ypixels', 'update')
 
-        # Container-Größe = Label-Inhalt + Rahmen
-        ch = self.detailsContainer.cget('borderwidth') * 2 + reqH
+        # Container-Breite = max. Textzeilenbreite + Padding + Rahmen, maximal bis Fensterrand
+        pad = self.detailsLabel.cget('padx') * 2
+        cw = pad + maxLineWidth
+        if cw > width:
+            cw = width
+
+        # Container-Höhe = Label-Inhalt + Rahmen
+        ch = reqH
+
+        # Label-Fenster im Canvas an die tatsächliche Textgröße anpassen
+        labelWidth = cw - pad
+        self.detailsCanvas.itemconfig(self._detailsWindowId, width=labelWidth, height=ch)
+
+        r = 8
+        self.detailsCanvas.delete('roundrect')
+        _create_rounded_rect(self.detailsCanvas, 1, 1, cw-1, ch-1, r,
+                             fill=self.activeBackground,
+                             outline='gray', width=1,
+                             tags='roundrect')
+        self.detailsCanvas.tag_lower('roundrect')
+
+        self.detailsCanvas.coords(self._detailsWindowId, pad//2, 0)
 
         y = box.y
         if y + ch > self.logTextTree.winfo_height():
            y = self.logTextTree.winfo_height() - ch
-        self.detailsContainer.place(x=x, y=y, width=width, height=ch)
+
+        self.detailsCanvas.place(x=x, y=y, width=cw, height=ch)
       
     def clear(self):
         super().clear()
