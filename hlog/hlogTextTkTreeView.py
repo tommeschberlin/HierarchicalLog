@@ -125,8 +125,13 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         self.font = font.Font( family=myFont['family'], size=myFont['size'], overstrike=myFont['overstrike'],
                                slant=myFont['slant'], underline=myFont['underline'], weight=myFont['weight'])
 
-        self.detailsLabel = HTMLLabel(self.logTextTree, font=self.font)
-        self.detailsLabel.place_forget()
+        # Container für die Sprechblase (Details-Popup)
+        self.detailsContainer = Frame(self.logTextTree, relief='solid', borderwidth=2)
+        self.detailsLabel = HTMLLabel(self.detailsContainer, font=self.font,
+                                        relief='flat', borderwidth=0, padx=6, pady=6)
+        
+        self.detailsLabel.pack(fill=BOTH, expand=True)
+        self.detailsContainer.place_forget()
 
         # patch html-parser font
         html_parser.Defs.FONT_SIZE = myFont['size']
@@ -391,20 +396,20 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
 
     def updateActiveRecordDetails( self ):
         if self.showDetails != SHOW_DETAILS_AT_ENTRY_IF_ACTIVE or self.activeIdx == self.maxCntRecords:
-            self.detailsLabel.place_forget()
+            self.detailsContainer.place_forget()
             return
 
-                # Use bbox of the entry's tree column (column '#0') to determine the left edge,
+        # Use bbox of the entry's tree column (column '#0') to determine the left edge,
         # then extend the popup from the right side of the entry to the scrollbar
         boxList = self.logTextTree.bbox( self.activeIdx, column='#0' )
         if not len(boxList):
-            self.detailsLabel.place_forget()
+            self.detailsContainer.place_forget()
             return
 
         record : HLogTextTreeRecord = self.record(self.activeIdx)
         msg = self.format( record )
         if not '\n' in msg: 
-            self.detailsLabel.place_forget()
+            self.detailsContainer.place_forget()
             return
 
         # extract/show details
@@ -422,14 +427,13 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         x = box.x + box.w
         width = self.logTextTree.winfo_width() - x
 
-        # show label in unseen area, else width calculations will not work
-        self.detailsLabel.place( x=-1000,y=-1000, width=1000, height=1000 )
-
         # set colors                        
         tagName = self.levelTagNameFromIdx( self.activeIdx )
         fg = self.logTextTree.tag_configure(tagName, 'foreground')
+        if isinstance(fg, tuple):
+            fg = fg[4]
         html_parser.DEFAULT_STACK[html_parser.WCfg.KEY][html_parser.WCfg.FOREGROUND]= [("__DEFAULT__", f"{fg}")]
-        self.detailsLabel.configure(background=self.logTextTree.tag_configure(tagName, 'background'))
+        self.detailsLabel.configure(background=self.activeBackground)
 
         # insert markdown
         html = self.md2html.convert( details )
@@ -441,10 +445,13 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         reqH += self.detailsLabel.cget('pady') * 2
         reqH += self.detailsLabel.count(1.0, END, 'ypixels', 'update')
 
+        # Container-Größe = Label-Inhalt + Rahmen
+        ch = self.detailsContainer.cget('borderwidth') * 2 + reqH
+
         y = box.y
-        if y + reqH > self.logTextTree.winfo_height():
-           y = self.logTextTree.winfo_height() - reqH
-        self.detailsLabel.place(x=x, y=y, width=width, height=reqH)
+        if y + ch > self.logTextTree.winfo_height():
+           y = self.logTextTree.winfo_height() - ch
+        self.detailsContainer.place(x=x, y=y, width=width, height=ch)
       
     def clear(self):
         super().clear()
