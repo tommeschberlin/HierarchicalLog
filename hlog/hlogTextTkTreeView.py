@@ -10,9 +10,8 @@ import os
 from pathlib import Path
 import re
 from datetime import datetime
-from tkhtmlview import HTMLLabel
-from tkhtmlview import html_parser
 from markdown2 import Markdown
+from tkinterweb import HtmlLabel 
 
 SHOW_DETAILS_OFF = 0
 SHOW_DETAILS_AT_ENTRY_IF_ACTIVE = 1
@@ -27,8 +26,24 @@ class HLogTextTreeRecord(HLogRecord):
     """ Log record to use in HierarchicalLogTextTree """
     def __init__(self):
         self.itemId = ''
-        self.showSubrecords = None
+        self.showSubrecords : bool | None = None
         self.maxChildLevelNo = -1
+
+    @classmethod
+    def ensure_HLogRecord(cls, record : HLogRecord | HLogTextTreeRecord) -> HLogTextTreeRecord:
+        if isinstance(record, HLogTextTreeRecord):
+            return record
+        record.__class__ = HLogTextTreeRecord
+        record.__dict__.update(record.__dict__)
+        assert isinstance(record, HLogTextTreeRecord)
+        return record
+
+    @classmethod
+    def from_HLogRecord(cls, record : HLogRecord | HLogTextTreeRecord | None) -> HLogTextTreeRecord | None:
+        if record is None:
+            return None
+        return cls.ensure_HLogRecord(record)
+
 
 def _create_rounded_rect(canvas, x1, y1, x2, y2, r, **kwargs):
     """Zeichnet ein abgerundetes Rechteck auf einem Canvas."""
@@ -47,7 +62,7 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
     DefaultShowSubrecords = False
 
     def __init__(self, master=None, logger: logging.Logger = logging.getLogger(),
-                 fmt: str = None, maxCntRecords: int =  100000, **kw):
+                 fmt: str = '', maxCntRecords: int =  100000, **kw):
         Frame.__init__(self, master, **kw)
         RecordingHandler.__init__(self, maxCntRecords = maxCntRecords )
         HLogTextTkTreeView.CntCreated += 1
@@ -80,8 +95,6 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         self.scrollX.grid( row=1, column=0, sticky='ew' )
 
         self.fmt = fmt
-        if not self.fmt:
-            self.fmt = ""
 
         # tagnames for levelnames
         self.levelTagNames : dict[str,str] = {}
@@ -133,22 +146,9 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
 
         # Sprechblase (Details-Popup) mit abgerundeten Ecken via Canvas
         self.detailsCanvas = Canvas(self.logTextTree, highlightthickness=0, borderwidth=0, background=self.treeBackground)
-        self.detailsLabel = HTMLLabel(self.detailsCanvas, font=self.font,
-                                      relief='flat', borderwidth=0, padx=6, pady=6)
+        self.detailsLabel = HtmlLabel(self.detailsCanvas, relief='flat', borderwidth=0)
         self._detailsWindowId = self.detailsCanvas.create_window(0, 0, window=self.detailsLabel, anchor='nw')
         self.detailsCanvas.place_forget()
-
-        # patch html-parser font
-        html_parser.Defs.FONT_SIZE = myFont['size']
-        html_parser.Defs.HEADINGS_FONT_SIZE = {
-            "h1": int( 32/14 * html_parser.Defs.FONT_SIZE ),
-            "h2": int( 24/14 * html_parser.Defs.FONT_SIZE ),
-            "h3": int( 18/14 * html_parser.Defs.FONT_SIZE ),
-            "h4": int( 16/14 * html_parser.Defs.FONT_SIZE ),
-            "h5": int( 13/14 * html_parser.Defs.FONT_SIZE ),
-            "h6": int( 10/14 * html_parser.Defs.FONT_SIZE ),
-        }
-        html_parser.DEFAULT_STACK[html_parser.Fnt.KEY][html_parser.Fnt.SIZE] = [("__DEFAULT__", myFont['size'])]
         self.md2html = Markdown(extras=['tables'])
 
     def scrollYCmd(self, *args):
@@ -161,18 +161,18 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
     def select(self, idx):
         self.logTextTree.selection_set(idx)
 
-    def addCustomLevel(self, levelId, levelName, tagConfig : dict[str,str] = None, tagActiveConfig : dict[str,str] = None):
+    def addCustomLevel(self, levelId, levelName, tagConfig : dict[str,str] | None = None, tagActiveConfig : dict[str,str] | None = None):
         super().addCustomLevel(levelId, levelName)
-        if tagConfig.get( 'foreground') is None:
-            tagConfig['foreground'] = self.foreground
         self.levelTagNames[levelName] = "Level" + levelName
         if tagConfig is not None:
-            self.logTextTree.tag_configure(self.levelTagNames[levelName], **tagConfig)
+            if tagConfig.get( 'foreground') is None:
+                tagConfig['foreground'] = self.foreground
+            self.logTextTree.tag_configure(self.levelTagNames[levelName], option=None, **tagConfig)
             if tagActiveConfig is None:
                 tagActiveConfig = tagConfig
             if tagActiveConfig.get( 'foreground') is None:
                 tagActiveConfig['foreground'] = self.foreground
-            self.logTextTree.tag_configure( self.levelTagNames[levelName] + self.levelTagActiveSuffix, **tagActiveConfig)
+            self.logTextTree.tag_configure( self.levelTagNames[levelName] + self.levelTagActiveSuffix, option=None, **tagActiveConfig)
 
     def levelTagNameFromIdx( self, idx ):
         tagNames = self.logTextTree.item( idx, 'tags' )
@@ -185,7 +185,8 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         # children?
         if self.cntFilteredChildren( parent.idx ) > 0:
             self.updateRecordLevelTag( parent, True )
-        if parent.showSubrecords != (self.logTextTree.item( parent.idx )['open'] != 0):
+        if not parent.showSubrecords is None and \
+           parent.showSubrecords != (self.logTextTree.item( parent.idx )['open'] != 0):
             self.logTextTree.item( parent.idx, open=parent.showSubrecords )
 
     def updateRecordLevelTag( self, record : HLogTextTreeRecord, force = False ):
@@ -210,7 +211,7 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         tags.append( newLevelTagName )
         self.logTextTree.item( record.idx, tags=tags )
 
-    def insertRecordAt( self, parentId, indexAtParent, record : HLogTextTreeRecord, showDetails : bool = False ) -> int:
+    def insertRecordAt( self, parentId, indexAtParent, record : HLogTextTreeRecord, showDetails : bool = False ) -> str:
         msg = self.format( record )
         if '\n' in msg:
             parts = msg.split('\n')
@@ -223,9 +224,9 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         self.updateRecordLevelTag( record )
         return record.itemId
 
-    def insertRecordsAt(self, indicees, index, parent : HLogTextTreeRecord = None):
+    def insertRecordsAt(self, indicees, index, parent : HLogTextTreeRecord | None = None):
         """ inserts a group of records at index """
-        insertedIds = []
+        insertedIds : list[str] = []
         maxChildLevelNo = -1
         parentId = ''
 
@@ -234,12 +235,12 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
             if parent.idx != self.lastHandledParentIdx:
                 self.updateParent( parent )
             if not parent.showSubrecords:
-                return 0
+                return []
             maxChildLevelNo = parent.maxChildLevelNo
             parentId = parent.itemId
 
         for idx in indicees:
-            record = self.record( idx )
+            record = HLogTextTreeRecord.ensure_HLogRecord(self.record( idx ))
             if record.levelno > maxChildLevelNo:
                 maxChildLevelNo = record.levelno
             if not self.passedFilter( record ):
@@ -251,7 +252,8 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
             # insert children
             # only not last element can have children
             if record.idx < self.maxIdx():
-                insertedIds += self.insertRecordsAt(self.getFilteredChildren( record.idx ), index + len(insertedIds), record )
+                insertedIds.extend(self.insertRecordsAt(self.getFilteredChildren( record.idx ),\
+                                                        index + len(insertedIds), record))
 
         if parent != None and maxChildLevelNo > parent.levelno and maxChildLevelNo > parent.maxChildLevelNo:
             parent.maxChildLevelNo = maxChildLevelNo
@@ -259,18 +261,18 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         
         return insertedIds
 
-    def emit(self, record : HLogTextTreeRecord)->None:
+    def emit(self, record : HLogRecord)->None:
         RecordingHandler.emit( self, record )
 
         # no parent retrieving needed if already done for a previous record
-        parent : HLogTextTreeRecord
+        parent : HLogTextTreeRecord | None
         if self.lastHandledRecordHierarchyStage == record.hierarchyStage:
-            parent = self.at( self.lastHandledParentIdx )
+            parent = HLogTextTreeRecord.from_HLogRecord(self.at( self.lastHandledParentIdx ))
         else:
-            parent = self.parentRecord( record.idx )
+            parent = HLogTextTreeRecord.from_HLogRecord(self.parentRecord( record.idx ))
 
         isShow = self.passedFilter( record )
-        if isShow and ( not parent is None ):
+        if isShow and parent:
             if parent.showSubrecords is None:
                 parent.showSubrecords = self.DefaultShowSubrecords
 
@@ -308,7 +310,7 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         parentIdx = self.parentIdx( idx )
         if parentIdx is None:
             return True
-        parent = self.record( parentIdx )
+        parent = HLogTextTreeRecord.ensure_HLogRecord(self.record( parentIdx ))
         if parent.showSubrecords == False:
             return False
         return self.isShow( parentIdx )
@@ -336,7 +338,7 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         selIdx = int(self.logTextTree.selection()[0])
         self.alterActiveRecord( selIdx )
 
-        record = self.record( selIdx )
+        record = HLogTextTreeRecord.ensure_HLogRecord(self.record( selIdx ))
         newLevelName = record.levelname
         if record.maxChildLevelNo > 0:
             newLevelName = logging.getLevelName( record.maxChildLevelNo )
@@ -345,12 +347,12 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
 
     def onOpen(self, event):
         selIdx = int(self.logTextTree.selection()[0])
-        record : HLogTextTreeRecord = self.record( selIdx )
+        record = HLogTextTreeRecord.ensure_HLogRecord(self.record( selIdx ))
         record.showSubrecords = True
 
     def onClose(self, event):
         selIdx = int(self.logTextTree.selection()[0])
-        record : HLogTextTreeRecord = self.record( selIdx )
+        record = HLogTextTreeRecord.ensure_HLogRecord(self.record( selIdx ))
         record.showSubrecords = False
 
     def alterActiveRecord( self, idx : int ):
@@ -367,15 +369,15 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
                     parts = msg.split('\n')
                     msg = parts[0]
                 self.logTextTree.item(currentActiveIdx, text=msg)
-                self.updateParent( self.record(currentActiveIdx) )
-                self.updateRecordLevelTag( self.record(currentActiveIdx) )
+                self.updateParent( HLogTextTreeRecord.ensure_HLogRecord(self.record(currentActiveIdx)) )
+                self.updateRecordLevelTag( HLogTextTreeRecord.ensure_HLogRecord(self.record(currentActiveIdx)) )
                 
         if idx == currentActiveIdx:
             # only deactivated the current active one
             return
 
         self.activeIdx = idx
-        record = self.record(idx)
+        record = HLogTextTreeRecord.ensure_HLogRecord(self.record(idx))
         msg = self.format( record )
         if '\n' in msg:
             parts = msg.split('\n')
@@ -393,13 +395,14 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
 
         # Use bbox of the entry's tree column (column '#0') to determine the left edge,
         # then extend the popup from the right side of the entry to the scrollbar
-        boxList = self.logTextTree.bbox( self.activeIdx, column='#0' )
-        if not len(boxList):
+        boxTuple = self.logTextTree.bbox( self.activeIdx, column='#0' )
+        if not len(boxTuple):
             self.detailsCanvas.place_forget()
             return
 
-        record : HLogTextTreeRecord = self.record(self.activeIdx)
+        record = HLogTextTreeRecord.ensure_HLogRecord(self.record(self.activeIdx))
         msg = self.format( record )
+        # details are expected after heading, separated by \n
         if not '\n' in msg: 
             self.detailsCanvas.place_forget()
             return
@@ -407,51 +410,54 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         # extract/show details
         msg = msg.replace("\t", "") # tabs ersetzen
         parts = msg.split('\n')
-        details = "```" + '\n'.join( parts[1:len(parts)] ) + "```"
+        #details = "```" + '\n'.join( parts[1:len(parts)] ) + "```"
+        details = '\n'.join( parts[1:len(parts)] )
 
         # calc position: left edge = right side of the entry's bbox (tree column)
         # width = from there to the right edge of the treeview
         class boxT:
-            def __init__(self): self.x : int; self.y : int; self.w : int; self.h : int
+            def __init__(self):
+                self.x : int = 0
+                self.y : int = 0
+                self.w : int = 0
+                self.h : int = 0
 
         box = boxT()
-        box.x, box.y, box.w, box.h = boxList
+        assert isinstance(boxTuple, tuple)
+        box.x, box.y, box.w, box.h = boxTuple
         x = box.x + box.w
         width = self.logTextTree.winfo_width() - x
 
         # set colors                        
         tagName = self.levelTagNameFromIdx( self.activeIdx )
-        fg = self.logTextTree.tag_configure(tagName, 'foreground')
-        if isinstance(fg, tuple):
-            fg = fg[4]
-        html_parser.DEFAULT_STACK[html_parser.WCfg.KEY][html_parser.WCfg.FOREGROUND]= [("__DEFAULT__", f"{fg}")]
-        self.detailsLabel.configure(background=self.activeBackground)
+        fg = 'black'
+        if tagName is not None:
+            fg = self.logTextTree.tag_configure(tagName, 'foreground')
+            if isinstance(fg, tuple):
+                fg = fg[4]
 
         # Label vor dem Messen auf volle Breite setzen, damit Text nicht umbricht
         self.detailsCanvas.place(x=0, y=-1000, width=1000, height=1000)
         self.detailsCanvas.itemconfig(self._detailsWindowId, width=2000, height=2000)
+        self.update()
 
         # insert markdown
         html = self.md2html.convert( details ).strip()
-        self.detailsLabel.set_html(html, strip=False)
+        html = html.replace("\n\n", "\n")
+        html = f"<div style='color: {fg};'>{html}</div>"
+        print('-------')
+        print(html)
+        self.detailsLabel.load_html(html)
 
         # Ab hier alles in after_idle, damit alle Änderungen durchgelaufen sind
         def _update():
-            # Textbreite über die längste Zeile ermitteln
-            maxLineWidth = 0
-            endLine = int(self.detailsLabel.index(END).split('.')[0])
-            for line in range(1, endLine):
-                lineWidth = self.detailsLabel.count(f"{line}.0", f"{line}.0 lineend", 'xpixels', 'update')
-                if lineWidth is not None:
-                    maxLineWidth = max(lineWidth, maxLineWidth)
+            maxLineWidth  = self.detailsLabel.html.winfo_reqwidth()
 
             # Höhe aus Textzeilen
-            textPadX = self.detailsLabel.cget('padx')
-            textPadY = self.detailsLabel.cget('pady')
-            textPadX += self.detailsLabel.cget('borderwidth') + self.detailsLabel.cget('highlightthickness')
-            textPadY += self.detailsLabel.cget('borderwidth') + self.detailsLabel.cget('highlightthickness')
+            textPadX = int(self.detailsLabel.cget('borderwidth'))
+            textPadY = int(self.detailsLabel.cget('borderwidth'))
 
-            textHeight = self.detailsLabel.count(1.0, END, 'ypixels', 'update') + 2 * textPadY
+            textHeight = self.detailsLabel.winfo_reqheight() + 2 * textPadY
             textWidth = maxLineWidth + 2 * textPadX
 
             r = 8
@@ -484,7 +490,7 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         self.activeIdx = self.maxCntRecords
         self.lastActivePos.clear()
         self.clearCache()
-        self.logTextTree.delete( self.logTextTree.get_children() )
+        self.logTextTree.delete( *self.logTextTree.get_children() )
 
-    def parentRecord( self, idx )->HLogTextTreeRecord:
+    def parentRecord( self, idx ):
         return RecordingHandler.parentRecord( self, idx )
