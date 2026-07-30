@@ -150,6 +150,26 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         self._detailsWindowId = self.detailsCanvas.create_window(0, 0, window=self.detailsLabel, anchor='nw')
         self.detailsCanvas.place_forget()
         self.md2html = Markdown(extras=['tables'])
+        # Stylt das <pre>-Tag (oder das <code>-Tag) für eine schöne Code-Box
+        self.htmlStyle =  ("""
+        <style>
+            body {
+                margin: 2px;
+                padding: 0;
+            }
+            pre, code { 
+                background-color: #f5f5f5; 
+                border: 1px solid #ccc; 
+                border-radius: 4px; 
+                padding: 4px; 
+                font-family: monospace; 
+                white-space: pre;
+                display: block;
+                margin: 2;
+            }
+        </style>
+        """)        
+
 
     def scrollYCmd(self, *args):
         self.scrollY.set(*args)
@@ -395,8 +415,8 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
 
         # Use bbox of the entry's tree column (column '#0') to determine the left edge,
         # then extend the popup from the right side of the entry to the scrollbar
-        boxTuple = self.logTextTree.bbox( self.activeIdx, column='#0' )
-        if not len(boxTuple):
+        column0BoxTuple = self.logTextTree.bbox( self.activeIdx, column='#0' )
+        if not len(column0BoxTuple):
             self.detailsCanvas.place_forget()
             return
 
@@ -410,7 +430,6 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         # extract/show details
         msg = msg.replace("\t", "") # tabs ersetzen
         parts = msg.split('\n')
-        #details = "```" + '\n'.join( parts[1:len(parts)] ) + "```"
         details = '\n'.join( parts[1:len(parts)] )
 
         # calc position: left edge = right side of the entry's bbox (tree column)
@@ -423,10 +442,10 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
                 self.h : int = 0
 
         box = boxT()
-        assert isinstance(boxTuple, tuple)
-        box.x, box.y, box.w, box.h = boxTuple
+        assert isinstance(column0BoxTuple, tuple)
+        box.x, box.y, box.w, box.h = column0BoxTuple
         x = box.x + box.w
-        width = self.logTextTree.winfo_width() - x
+        maxAvailableWidth = self.logTextTree.winfo_width() - x
 
         # set colors                        
         tagName = self.levelTagNameFromIdx( self.activeIdx )
@@ -437,46 +456,50 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
                 fg = fg[4]
 
         # Label vor dem Messen auf volle Breite setzen, damit Text nicht umbricht
-        self.detailsCanvas.place(x=0, y=-1000, width=1000, height=1000)
-        self.detailsCanvas.itemconfig(self._detailsWindowId, width=2000, height=2000)
-        self.update()
+        #self.detailsCanvas.place(x=0, y=-1000, width=1000, height=1000)
+        #self.detailsCanvas.itemconfig(self._detailsWindowId, width=2000, height=2000)
+        #self.update()
 
         # insert markdown
         html = self.md2html.convert( details ).strip()
-        html = html.replace("\n\n", "\n")
-        html = f"<div style='color: {fg};'>{html}</div>"
-        print('-------')
-        print(html)
+
+        # Entfernt das umschließende <p> und </p>, falls vorhanden
+        html = re.sub(r'^<p>(.*?)</p>$', r'\1', html, flags=re.DOTALL)
+        # style hinzufügen
+        html = f"{self.htmlStyle}<div style='color: {fg};'>{html}</div>"
         self.detailsLabel.load_html(html)
+        self.update() # wichtig für korrekte Größenanpassung
 
         # Ab hier alles in after_idle, damit alle Änderungen durchgelaufen sind
         def _update():
-            maxLineWidth  = self.detailsLabel.html.winfo_reqwidth()
+            maxHtmlWidth = self.detailsLabel.html.winfo_reqwidth()
+            maxHtmlHeight = self.detailsLabel.winfo_reqheight()
 
-            # Höhe aus Textzeilen
             textPadX = int(self.detailsLabel.cget('borderwidth'))
             textPadY = int(self.detailsLabel.cget('borderwidth'))
+            textHeight = maxHtmlHeight + 2 * textPadY
+            textWidth = maxHtmlWidth + 2 * textPadX
 
-            textHeight = self.detailsLabel.winfo_reqheight() + 2 * textPadY
-            textWidth = maxLineWidth + 2 * textPadX
-
+            offset = -5
             r = 8
             rectBorder = r/2
-            canvasHeight = textHeight + 2*rectBorder
-            canvasWidth = textWidth + 2*rectBorder
+            canvasHeight = textHeight + rectBorder + 1
+            canvasWidth = textWidth + rectBorder + 1
 
             self.detailsCanvas.itemconfig(self._detailsWindowId, width=textWidth, height=textHeight)
 
             self.detailsCanvas.delete('roundrect')
-            _create_rounded_rect(self.detailsCanvas, 1, 1, textWidth + textPadX -1, textHeight + textPadY -1, r,
+            _create_rounded_rect(self.detailsCanvas, 0, 0, textWidth + textPadX + r/2 , textHeight + textPadY + r/2, r,
                                  fill=self.activeBackground,
                                  outline='gray', width=1,
                                  tags='roundrect')
             self.detailsCanvas.tag_lower('roundrect')
 
-            self.detailsCanvas.coords(self._detailsWindowId, rectBorder, rectBorder)
+            self.detailsCanvas.coords(self._detailsWindowId, r/4, r/4)
 
-            y = box.y
+            y = box.y + offset
+            if y < 0:
+                y = 0
             if y + canvasHeight > self.logTextTree.winfo_height():
                y = self.logTextTree.winfo_height() - canvasHeight
 
