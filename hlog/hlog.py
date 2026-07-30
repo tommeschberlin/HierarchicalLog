@@ -166,7 +166,7 @@ class RecordingHandler( logging.Handler ):
         """Retrieves the minimal available absolute idx"""
         return max( 0, self.entireAdded - self.maxCntRecords )
     
-    def at(self, idx)->HLogRecord:
+    def at(self, idx)->HLogRecord | None:
         """Retrieves a record by its idx, returns None if not found"""
         if idx == None:
             return None
