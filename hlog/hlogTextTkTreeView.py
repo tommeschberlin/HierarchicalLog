@@ -1,13 +1,8 @@
-from tkinter import *
-from tkinter.ttk import *
+from tkinter import Frame,Scrollbar,Canvas
 import logging
 from hlog.hlog import *
 from tkinter import font
-from tkinter import PhotoImage
 from tkinter import ttk
-from tkinter import Tk
-import os
-from pathlib import Path
 import re
 from datetime import datetime
 from markdown2 import Markdown
@@ -63,6 +58,8 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
 
     def __init__(self, master=None, logger: logging.Logger = logging.getLogger(),
                  fmt: str = '', maxCntRecords: int =  100000, **kw):
+        self.showTimeCol = kw.get( 'showTimeCol', True)
+        kw.pop('showTimeCol', None)
         Frame.__init__(self, master, **kw)
         RecordingHandler.__init__(self, maxCntRecords = maxCntRecords )
         HLogTextTkTreeView.CntCreated += 1
@@ -81,8 +78,17 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
 
         self.style = ttk.Style()
 
-        self.logTextTree = ttk.Treeview( self, xscrollcommand=self.scrollX.set, yscrollcommand=self.scrollYCmd, show="tree headings", selectmode="browse",
-                                         columns=['Text','More', 'Time'], style=f"{self.name}.Treeview" )
+        columns = ['Time'] if self.showTimeCol else []
+
+        self.logTextTree = ttk.Treeview( self, xscrollcommand=self.scrollX.set, yscrollcommand=self.scrollYCmd,
+                                         show="tree headings", selectmode="browse",
+                                         columns=columns, style=f"{self.name}.Treeview" )
+        ttk.Style().configure("Treeview", indent = 20)
+
+        # Spaltenüberschriften setzen
+        self.logTextTree.heading('#0', text='Entry')
+        if self.showTimeCol:
+            self.logTextTree.heading('Time', text='Time')
 
         self.scrollX.configure( command=self.logTextTree.xview )
         self.scrollY.configure( command=self.logTextTree.yview )
@@ -112,11 +118,16 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
 
         self.activeBackground = 'darkgray'
         self.activeForeground = 'black'
-        self.logTextTree.tag_configure(self.levelTagNames["ERROR"] + self.levelTagActiveSuffix , foreground="red", background=self.activeBackground )
-        self.logTextTree.tag_configure(self.levelTagNames["CRITICAL"] + self.levelTagActiveSuffix, foreground="white", background="darkred" )
-        self.logTextTree.tag_configure(self.levelTagNames["INFO"] + self.levelTagActiveSuffix, foreground="black", background=self.activeBackground )
-        self.logTextTree.tag_configure(self.levelTagNames["DEBUG"] + self.levelTagActiveSuffix, foreground="white", background=self.activeBackground )
-        self.logTextTree.tag_configure(self.levelTagNames["WARNING"] + self.levelTagActiveSuffix, foreground="orange", background=self.activeBackground )
+        self.logTextTree.tag_configure(self.levelTagNames["ERROR"] + self.levelTagActiveSuffix , foreground="red",
+                                       background=self.activeBackground )
+        self.logTextTree.tag_configure(self.levelTagNames["CRITICAL"] + self.levelTagActiveSuffix, foreground="white",
+                                       background="darkred" )
+        self.logTextTree.tag_configure(self.levelTagNames["INFO"] + self.levelTagActiveSuffix, foreground="black",
+                                       background=self.activeBackground )
+        self.logTextTree.tag_configure(self.levelTagNames["DEBUG"] + self.levelTagActiveSuffix, foreground="white",
+                                       background=self.activeBackground )
+        self.logTextTree.tag_configure(self.levelTagNames["WARNING"] + self.levelTagActiveSuffix, foreground="orange",
+                                       background=self.activeBackground )
 
         # update
         self.bind('<Configure>', self.onConfigureOrMap)
@@ -145,7 +156,8 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
                                slant=myFont['slant'], underline=myFont['underline'], weight=myFont['weight'])
 
         # Sprechblase (Details-Popup) mit abgerundeten Ecken via Canvas
-        self.detailsCanvas = Canvas(self.logTextTree, highlightthickness=0, borderwidth=0, background=self.treeBackground)
+        self.detailsCanvas = Canvas(self.logTextTree, highlightthickness=0, borderwidth=0,
+                                    background=self.treeBackground)
         self.detailsLabel = HtmlLabel(self.detailsCanvas, relief='flat', borderwidth=0)
         self._detailsWindowId = self.detailsCanvas.create_window(0, 0, window=self.detailsLabel, anchor='nw')
         self.detailsCanvas.place_forget()
@@ -181,7 +193,8 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
     def select(self, idx):
         self.logTextTree.selection_set(idx)
 
-    def addCustomLevel(self, levelId, levelName, tagConfig : dict[str,str] | None = None, tagActiveConfig : dict[str,str] | None = None):
+    def addCustomLevel(self, levelId, levelName, tagConfig : dict[str,str] | None = None,
+                       tagActiveConfig : dict[str,str] | None = None):
         super().addCustomLevel(levelId, levelName)
         self.levelTagNames[levelName] = "Level" + levelName
         if tagConfig is not None:
@@ -192,7 +205,8 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
                 tagActiveConfig = tagConfig
             if tagActiveConfig.get( 'foreground') is None:
                 tagActiveConfig['foreground'] = self.foreground
-            self.logTextTree.tag_configure( self.levelTagNames[levelName] + self.levelTagActiveSuffix, option=None, **tagActiveConfig)
+            self.logTextTree.tag_configure( self.levelTagNames[levelName] + self.levelTagActiveSuffix, option=None,
+                                           **tagActiveConfig)
 
     def levelTagNameFromIdx( self, idx ):
         tagNames = self.logTextTree.item( idx, 'tags' )
@@ -231,7 +245,8 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         tags.append( newLevelTagName )
         self.logTextTree.item( record.idx, tags=tags )
 
-    def insertRecordAt( self, parentId, indexAtParent, record : HLogTextTreeRecord, showDetails : bool = False ) -> str:
+    def insertRecordAt( self, parentId, indexAtParent, record : HLogTextTreeRecord,
+                       showDetails : bool = False ) -> str:
         msg = self.format( record )
         if '\n' in msg:
             parts = msg.split('\n')
@@ -267,7 +282,9 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
                 continue
 
             insertedIds += self.insertRecordAt( parentId, index + len(insertedIds), record, 
-                                                self.showDetails == (SHOW_DETAILS_AT_ENTRY_IF_ACTIVE and self.canShowDetailsInRow and self.activeIdx == idx) )
+                                                self.showDetails == (SHOW_DETAILS_AT_ENTRY_IF_ACTIVE \
+                                                                     and self.canShowDetailsInRow \
+                                                                     and self.activeIdx == idx) )
 
             # insert children
             # only not last element can have children
@@ -363,7 +380,8 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         if record.maxChildLevelNo > 0:
             newLevelName = logging.getLevelName( record.maxChildLevelNo )
         tagConfig = self.logTextTree.tag_configure(self.levelTagNames[newLevelName] + self.levelTagActiveSuffix )
-        self.style.map(f"{self.name}.Treeview", background=[('selected',tagConfig['background'])],foreground=[('selected',tagConfig['foreground'])])
+        self.style.map(f"{self.name}.Treeview", background=[('selected',tagConfig['background'])],
+                       foreground=[('selected',tagConfig['foreground'])])
 
     def onOpen(self, event):
         selIdx = int(self.logTextTree.selection()[0])
@@ -408,6 +426,34 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
         self.updateRecordLevelTag( record )
         self.updateActiveRecordDetails()
 
+    def getItemIndent(self, itemId):
+        """Berechnet die exakte Einrückung des Textes für ein Element in Pixeln."""
+        # 1. Ebene (Tiefe) im Baum bestimmen
+        depth = 0
+        current = itemId
+        while True:
+            current = self.logTextTree.parent(current)
+            if current == "":  # Die oberste Wurzel ist erreicht
+                break
+            depth += 1
+            
+        # 2. Den systemweiten Einzugswert (Indent) in Pixeln ermitteln
+        # Holt den 'indent'-Wert des Treeviews. Standardwert ist meist 20, falls nicht definiert.
+        indent_setting = ttk.Style().lookup("Treeview", "indent")
+        
+        indent_per_level = int(indent_setting) if isinstance(indent_setting, int) else 20
+        
+        # 3. Reine Einrückung berechnen
+        pure_indent = depth * indent_per_level
+
+        padding = 4
+        
+        # Optional: Konstanten für Pfeil (Expand-Icon) und Grafik-Padding aufschlagen
+        # Ein Aufklapp-Pfeil benötigt in den meisten Standard-Themes ca. 16 Pixel Platz.
+        arrow_space = 16
+        
+        return pure_indent + arrow_space + 2 * padding
+
     def updateActiveRecordDetails( self ):
         if self.showDetails != SHOW_DETAILS_AT_ENTRY_IF_ACTIVE or self.activeIdx == self.maxCntRecords:
             self.detailsCanvas.place_forget()
@@ -429,23 +475,22 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
 
         # extract/show details
         msg = msg.replace("\t", "") # tabs ersetzen
-        parts = msg.split('\n')
-        details = '\n'.join( parts[1:len(parts)] )
+        msgParts = msg.split('\n')
+        details = '\n'.join( msgParts[1:len(msgParts)] )
 
         # calc position: left edge = right side of the entry's bbox (tree column)
         # width = from there to the right edge of the treeview
         class boxT:
-            def __init__(self):
-                self.x : int = 0
-                self.y : int = 0
-                self.w : int = 0
-                self.h : int = 0
+            def __init__(self, boxTuple):
+                assert isinstance(boxTuple, tuple)
+                self.x, self.y, self.w, self.h = boxTuple
 
-        box = boxT()
-        assert isinstance(column0BoxTuple, tuple)
-        box.x, box.y, box.w, box.h = column0BoxTuple
-        x = box.x + box.w
-        maxAvailableWidth = self.logTextTree.winfo_width() - x
+        box = boxT(column0BoxTuple)
+        maxX = self.logTextTree.winfo_width()
+        minDetailsWidth = 50
+        minDetailsX = 15
+        maxDetailsX = max(min(box.x + box.w - minDetailsWidth, maxX - minDetailsWidth), minDetailsX)
+        maxDetailsWidth = maxX - minDetailsX
 
         # set colors                        
         tagName = self.levelTagNameFromIdx( self.activeIdx )
@@ -489,7 +534,8 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
             self.detailsCanvas.itemconfig(self._detailsWindowId, width=textWidth, height=textHeight)
 
             self.detailsCanvas.delete('roundrect')
-            _create_rounded_rect(self.detailsCanvas, 0, 0, textWidth + textPadX + r/2 , textHeight + textPadY + r/2, r,
+            _create_rounded_rect(self.detailsCanvas, 0, 0, textWidth + textPadX + r/2 ,
+                                 textHeight + textPadY + r/2, r,
                                  fill=self.activeBackground,
                                  outline='gray', width=1,
                                  tags='roundrect')
@@ -502,6 +548,15 @@ class HLogTextTkTreeView(RecordingHandler, Frame):
                 y = 0
             if y + canvasHeight > self.logTextTree.winfo_height():
                y = self.logTextTree.winfo_height() - canvasHeight
+
+            logTextWidth = self.font.measure(msgParts[0])
+            x = logTextWidth + self.getItemIndent(record.itemId)
+            canvasWidth = min(canvasWidth, maxDetailsWidth)
+            if x + canvasWidth > maxX:
+                x = maxX - canvasWidth
+                if x < minDetailsX:
+                    x = minDetailsX
+                    canvasWidth = minDetailsWidth
 
             self.detailsCanvas.itemconfig(self._detailsWindowId, width=textWidth, height=textHeight)
             self.detailsCanvas.place(x=x, y=y, width=canvasWidth, height=canvasHeight)
