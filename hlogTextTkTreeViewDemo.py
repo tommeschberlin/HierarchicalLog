@@ -45,7 +45,7 @@ class App(tkinter.Frame):
         self.logger.critical("critical")
 
         with EnterLowerLogHierarchyStage( "0-0 Stage 0 -> 1", self.logger ) :
-            with EnterLowerLogHierarchyStage( "1-0 Stage 1 -> 2", self.logger ) :
+            with EnterLowerLogHierarchyStage( "1-0 Stage 1 -> 2\nDetails", self.logger ) :
                 self.logger.debug("2-0 something with already lowered log hierarchy stage here\n|a|a|\n|---|---|\n| 1 | 2 |")
                 with EnterLowerLogHierarchyStage( "2-1 Stage 2 -> 3", self.logger ) :
                     self.logger.debug("3-0 something with already lowered log hierarchy stage here")
@@ -65,8 +65,8 @@ Root.resizable(True,True)
 #Root.wm_attributes("-topmost", 1)
 
 if __name__ == '__main__':
-    App = App( Root )
-    App.pack(fill=BOTH, expand=True)
+    myApp = App( Root )
+    myApp.pack(fill=BOTH, expand=True)
     Root.update()
-    App.after( 10, App.start() )
-    App.mainloop()
+    myApp.after( 10, myApp.start )
+    myApp.mainloop()
